@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/auth';
 import {
   createThread,
   addMessageToThread,
@@ -25,6 +26,12 @@ const availableTools: { [key: string]: Function } = {
  */
 export async function POST(req: NextRequest) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = session.user.id;
+
     const { message, conversationId: convId } = await req.json();
     let conversationId = convId;
 
@@ -32,18 +39,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
+    console.log('Incoming /api/chat POST', { userId, message, conversationId });
+
     const assistant = await getOrCreateAssistant();
 
     // Find or create the conversation record in the database
-    let conversation = conversationId
-      ? await prisma.conversation.findUnique({ where: { id: conversationId } })
+    let conversation = convId
+      ? await prisma.conversation.findFirst({ where: { id: convId, userId } })
       : null;
 
     if (!conversation) {
       conversation = await prisma.conversation.create({
         data: {
-          // In a real app, you'd link this to a user ID
-          userId: 'anonymous_user',
+          userId,
           status: 'gathering_info',
         },
       });
@@ -75,7 +83,11 @@ export async function POST(req: NextRequest) {
 
     // Handle the final run status
     if (run.status === 'completed') {
-      // The run is complete, nothing more to do on the backend for now.
+      // The run is complete, update the conversation status in the database.
+      await prisma.conversation.update({
+        where: { id: conversationId },
+        data: { status: 'in_chat' },
+      });
       // The frontend will fetch the latest messages.
       return NextResponse.json({
         conversationId: conversation.id,
@@ -124,7 +136,7 @@ export async function POST(req: NextRequest) {
 
     } else {
       // Handle failed, cancelled, or expired runs
-      console.error(`Run ended with status: ${run.status}`);
+      console.error(`Run ended with status: ${run.status}`, { run, conversationId, message });
       await prisma.conversation.update({ where: { id: conversationId }, data: { status: 'failed' }});
       return NextResponse.json({ error: `Run failed with status: ${run.status}` }, { status: 500 });
     }
@@ -141,23 +153,30 @@ export async function POST(req: NextRequest) {
  * Retrieves the status and messages of a conversation.
  */
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const conversationId = searchParams.get('conversationId');
-
-  if (!conversationId) {
-    return NextResponse.json({ error: 'conversationId is required' }, { status: 400 });
-  }
-
   try {
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = session.user.id;
+
+    const { searchParams } = new URL(req.url);
+    const conversationId = searchParams.get('conversationId');
+
+    if (!conversationId) {
+      return NextResponse.json({ error: 'conversationId is required' }, { status: 400 });
+    }
+
+    const conversation = await prisma.conversation.findFirst({
+      where: { id: conversationId, userId },
     });
 
     if (!conversation) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
     }
 
-    let messages = [];
+    type Message = { id: string; role: 'user' | 'assistant'; content: string };
+    let messages: Message[] = [];
     if (conversation.threadId) {
       const threadMessages = await getThreadMessages(conversation.threadId);
       // We reverse the order to show the latest messages last, which is typical for a chat UI.
@@ -165,7 +184,7 @@ export async function GET(req: NextRequest) {
         id: msg.id,
         role: msg.role,
         content: msg.content.map(c => (c.type === 'text' ? c.text.value : '')).join('\n'),
-      })).reverse();
+      })).reverse() as Message[];
     }
 
     return NextResponse.json({

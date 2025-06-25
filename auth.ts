@@ -1,8 +1,14 @@
 // auth.ts
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import { prisma } from "@/app/lib/db";
+
+// eslint-disable-next-line no-console
+console.log('[auth] Prisma instance in auth.ts:', typeof prisma);
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  adapter: PrismaAdapter(prisma),
   providers: [
     Google({
       // Ensure these environment variables are correctly set in your .env.local
@@ -16,10 +22,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   // pages: {
   //   signIn: '/auth/signin',
   // },
-  // callbacks: {
-  //   async session({ session, token }) {
-  //     // Custom logic to add info to session if needed
-  //     return session;
-  //   },
-  // },
+  callbacks: {
+    async session({ session, user }) {
+      // Add user ID to the session
+      if (session.user) {
+        session.user.id = user.id;
+      }
+      return session;
+    },
+  },
 });

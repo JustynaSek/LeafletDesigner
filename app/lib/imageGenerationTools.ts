@@ -1,14 +1,10 @@
 import { prisma } from './db';
 
 interface DesignData {
-  leafletSize: '1024x1792' | '1792x1024';
-  purpose: string;
-  targetAudience: string;
-  keyMessage1: string;
-  keyMessage2?: string;
-  contactEmail?: string;
-  style: string;
-  imageryPrompt: string;
+  headline: string;
+  body: string;
+  cta: string;
+  leafletSize: 'standard' | 'half_sheet' | 'dl_envelope';
 }
 
 /**
@@ -50,41 +46,25 @@ export const generateLeafletImageToolSchema = {
         designData: {
           type: 'object',
           properties: {
+            headline: {
+              type: 'string',
+              description: 'The compelling headline for the leaflet.',
+            },
+            body: {
+              type: 'string',
+              description: 'The main body text of the leaflet, including features, benefits, etc.',
+            },
+            cta: {
+              type: 'string',
+              description: 'The call to action (e.g., "Visit our website," "Call now").',
+            },
             leafletSize: {
               type: 'string',
-              enum: ['1024x1792', '1792x1024'],
-              description: 'The dimensions for the leaflet image. 1024x1792 for portrait, 1792x1024 for landscape.',
+              enum: ['standard', 'half_sheet', 'dl_envelope'],
+              description: 'The size of the leaflet. Standard (8.5" x 11"), Half Sheet (5.5" x 8.5"), or DL Envelope (3.9" x 8.3").',
             },
-            purpose: {
-              type: 'string',
-              description: 'The main goal or purpose of the leaflet (e.g., "Event Promotion", "Product Advertisement").',
-            },
-            targetAudience: {
-              type: 'string',
-              description: 'The intended audience for the leaflet (e.g., "Students", "Local Residents").',
-            },
-            keyMessage1: {
-              type: 'string',
-              description: 'The primary headline or most important message to be displayed prominently.'
-            },
-            keyMessage2: {
-              type: 'string',
-              description: 'A secondary message or piece of information, if applicable.'
-            },
-            contactEmail: {
-              type: 'string',
-              description: 'A contact email address to include on the leaflet, if provided by the user.'
-            },
-            style: {
-              type: 'string',
-              description: 'The desired visual style (e.g., "Modern and minimalist", "Playful and colorful", "Corporate and professional").',
-            },
-            imageryPrompt: {
-              type: 'string',
-              description: 'A detailed description of the desired background imagery or visual elements for DALL-E to generate.'
-            }
           },
-          required: ['leafletSize', 'purpose', 'targetAudience', 'keyMessage1', 'style', 'imageryPrompt'],
+          required: ['headline', 'body', 'cta', 'leafletSize'],
         },
         conversationId: {
           type: 'string',

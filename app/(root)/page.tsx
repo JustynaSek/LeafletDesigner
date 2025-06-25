@@ -1,143 +1,209 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
+import { InitialForm } from "../components/InitialForm";
+import ChatInterface from "../components/ChatInterface";
+import LeafletPreview from "../components/LeafletPreview";
+import LoadingSpinner from "../components/LoadingSpinner";
+import { LoginButton } from "../components/LoginButton";
 
-// Import the components
-import InitialForm from '../components/InitialForm';
-import ChatInterface from '../components/ChatInterface';
-import LeafletPreview from '../components/LeafletPreview';
-import LoadingSpinner from '../components/LoadingSpinner';
+type ConversationStatus =
+  | "awaiting_form"
+  | "gathering_info"
+  | "in_chat"
+  | "designing"
+  | "completed"
+  | "error";
 
-type ConversationStatus = 'awaiting_form' | 'gathering_info' | 'in_chat' | 'designing' | 'completed' | 'error';
 type Message = {
-  role: 'user' | 'assistant' | 'system';
+  role: "user" | "assistant" | "system";
   content: string;
 };
 
-const HomePage = () => {
+export default function HomePage() {
+  console.log("HomePage rendered");
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [status, setStatus] = useState<ConversationStatus>('awaiting_form');
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [status, setStatus] = useState<ConversationStatus>("awaiting_form");
+  const [history, setHistory] = useState<Message[]>([]);
   const [leafletUrl, setLeafletUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
+  const { data: session, status: sessionStatus } = useSession();
+  console.log("session from useSession", session, sessionStatus);
 
-  // Function to handle the initial form submission
-  const handleFormSubmit = async (formData: any) => {
-    setIsLoading(true);
-    setError(null);
+  const handleStartConversation = async (initialData: {
+    product: string;
+    details: string;
+    targetAudience: string;
+    contactInfo: string;
+    leafletSize: string;
+  }) => {
+    console.log("handleStartConversation called", { sessionStatus, session, initialData });
+    if (sessionStatus !== 'authenticated' || !session?.user?.id) {
+        console.error("Auth check FAILED inside handleStartConversation.", { sessionStatus, hasSession: !!session });
+        setStatus("error");
+        return;
+    }
+
+    setIsProcessing(true);
+    setStatus("gathering_info");
     try {
-      // Create a more detailed first message to give the assistant context.
-      const firstMessage = `
-        Hello, I need help creating a leaflet. Here are the initial details:
-        - Purpose: ${formData.purpose}
-        - Target Audience: ${formData.targetAudience}
-        - Primary Message/Headline: ${formData.keyMessage1}
-        - Desired Size: ${formData.leafletSize}
-
-        Please ask me any follow-up questions you have to complete the design.
-      `.trim().replace(/\s+/g, ' ');
-
-      const response = await axios.post('/api/chat', {
-        message: firstMessage,
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: JSON.stringify(initialData), userId: session.user.id }),
       });
-
-      const { conversationId: newConversationId } = response.data;
-      setConversationId(newConversationId);
-      setStatus('in_chat');
-      // Fetch initial messages
-      fetchConversationData(newConversationId);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to start conversation.');
-      setStatus('error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Function to fetch the entire conversation state from the backend
-  const fetchConversationData = async (convId: string) => {
-    if (!convId) return;
-    setIsLoading(true);
-    try {
-      const response = await axios.get(`/api/chat?conversationId=${convId}`);
-      const { status: newStatus, messages: newMessages, leafletUrl: newLeafletUrl } = response.data;
-      
-      setStatus(newStatus);
-      setMessages(newMessages);
-      setLeafletUrl(newLeafletUrl);
-
-    } catch (err: any) {
-       setError(err.response?.data?.error || 'Failed to fetch conversation data.');
-       setStatus('error');
-    } finally {
-        setIsLoading(false);
-    }
-  };
-
-
-  // This is a simplified handler for the chat interface (to be built out later)
-  const handleSendMessage = async (message: string) => {
-      // For now, this is just a placeholder. The real logic will be in ChatInterface.tsx
-      console.log("Message to send:", message);
-      if (!conversationId) return;
-
-      setIsLoading(true);
-      setError(null);
-
-      // Optimistic UI update
-      setMessages(prev => [...prev, { role: 'user', content: message }]);
-
+      if (!response.ok) throw new Error("Failed to start conversation");
+      const data = await response.json();
+      setConversationId(data.conversationId);
+      // Fetch the actual messages for the conversation
       try {
-          await axios.post('/api/chat', { message, conversationId });
-          // After sending, refresh the whole conversation state
-          fetchConversationData(conversationId);
-      } catch (err: any) {
-          setError(err.response?.data?.error || 'Failed to send message.');
-          // Optionally revert optimistic update here
-      } finally {
-          setIsLoading(false);
+        const messagesRes = await fetch(`/api/chat?conversationId=${data.conversationId}`);
+        if (messagesRes.ok) {
+          const messagesData = await messagesRes.json();
+          setHistory(messagesData.messages || []);
+          setStatus(messagesData.status || "in_chat");
+          setLeafletUrl(messagesData.leafletUrl || null);
+        } else {
+          setHistory([]);
+          setStatus("in_chat");
+        }
+      } catch (err) {
+        setHistory([]);
+        setStatus("in_chat");
       }
-  };
-  
-  // Render component based on status
-  const renderContent = () => {
-    switch (status) {
-      case 'awaiting_form':
-        return <InitialForm onFormSubmit={handleFormSubmit} isLoading={isLoading} />;
-      case 'gathering_info':
-      case 'in_chat':
-      case 'designing':
-        return <ChatInterface 
-                  messages={messages}
-                  onSendMessage={handleSendMessage}
-                  status={status}
-                  isLoading={isLoading}
-               />; 
-      case 'completed':
-        return <LeafletPreview leafletUrl={leafletUrl} />;
-      case 'error':
-        return <div className="text-red-500 p-4 border border-red-500 rounded-lg">{error}</div>;
-      default:
-        return null;
+    } catch (error) {
+      console.error("Error starting conversation:", error);
+      setStatus("error");
+    } finally {
+      setIsProcessing(false);
     }
   };
+
+  useEffect(() => {
+    console.log("useEffect sessionStatus", { sessionStatus, session });
+    if (sessionStatus === 'authenticated') {
+      const pendingData = localStorage.getItem("pendingLeafletData");
+      console.log("pendingData in useEffect", pendingData);
+      if (pendingData) {
+        const initialData = JSON.parse(pendingData);
+        localStorage.removeItem("pendingLeafletData");
+        handleStartConversation(initialData);
+      }
+    }
+  }, [sessionStatus, session]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    if (!["gathering_info", "tool_executed"].includes(status)) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/chat?conversationId=${conversationId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setHistory(data.messages || []);
+          setStatus(data.status || "in_chat");
+          setLeafletUrl(data.leafletUrl || null);
+          if (!["gathering_info", "tool_executed"].includes(data.status)) {
+            clearInterval(interval);
+          }
+        }
+      } catch (err) {
+        // Optionally handle error
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [conversationId, status]);
+
+  const handleSendMessage = async (message: string) => {
+    if (!conversationId) return;
+    setIsProcessing(true);
+    const newHistory: Message[] = [...history, { role: "user", content: message }];
+    setHistory(newHistory);
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, conversationId }),
+      });
+      if (!response.ok) throw new Error("Failed to send message");
+      const data = await response.json();
+      if (data.status === "completed" || data.status === "in_chat") {
+        // Fetch the latest messages
+        const messagesRes = await fetch(`/api/chat?conversationId=${conversationId}`);
+        if (messagesRes.ok) {
+          const messagesData = await messagesRes.json();
+          setHistory(messagesData.messages || []);
+          setStatus(messagesData.status || "in_chat");
+          setLeafletUrl(messagesData.leafletUrl || null);
+        } else {
+          setHistory([]);
+          setStatus("in_chat");
+        }
+      } else {
+        setHistory([]);
+        setStatus(data.status);
+        setLeafletUrl(data.leafletUrl);
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      setStatus("error");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const renderContent = () => {
+    const pendingData = typeof window !== 'undefined' ? localStorage.getItem("pendingLeafletData") : null;
+    console.log("renderContent", { sessionStatus, status, pendingData, isProcessing });
+    if (sessionStatus === 'loading') {
+      return <LoadingSpinner message="Loading session..." />;
+    }
+    
+    if (sessionStatus === 'unauthenticated') {
+      return <InitialForm onStartConversation={handleStartConversation} isLoading={isProcessing} />;
+    }
+
+    if (sessionStatus === 'authenticated') {
+      if (pendingData && status !== 'in_chat' && !isProcessing) {
+        return <LoadingSpinner message="Finalizing login..." />;
+      }
+      
+      switch (status) {
+        case "awaiting_form":
+          return <InitialForm onStartConversation={handleStartConversation} isLoading={isProcessing} />;
+        case "gathering_info":
+           return <LoadingSpinner message="Preparing your chat..." />;
+        case "in_chat":
+          return (
+            <ChatInterface
+              messages={history}
+              onSendMessage={handleSendMessage}
+              isLoading={isProcessing}
+              status={status}
+            />
+          );
+        case "designing":
+          return <LoadingSpinner message="AI is generating your leaflet..." />;
+        case "completed":
+          return <LeafletPreview leafletUrl={leafletUrl} />;
+        case "error":
+          return <p className="text-red-500 text-center">An error occurred. Please try refreshing the page.</p>;
+        default:
+          return <LoadingSpinner message="Initializing..." />;
+      }
+    }
+
+    // Fallback for any other unexpected state
+    return <LoadingSpinner message="Initializing..." />;
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full">
       {renderContent()}
-      {isLoading && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className='flex flex-col items-center gap-y-2'>
-                <LoadingSpinner />
-                <p className='text-white'>{status === 'designing' ? 'AI is generating your leaflet...' : 'Processing...'}</p>
-            </div>
-        </div>
-      )}
     </div>
   );
-};
-
-export default HomePage;
+}

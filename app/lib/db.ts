@@ -1,12 +1,24 @@
 import { PrismaClient } from '@prisma/client';
 
-// Prevent multiple instances of Prisma Client in development
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+let prisma: PrismaClient;
 
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    log: ['query', 'info', 'warn', 'error'],
-  });
+if (process.env.NODE_ENV === 'production') {
+  prisma = new PrismaClient();
+  // eslint-disable-next-line no-console
+  console.log('[prisma] Created new PrismaClient (production)');
+} else {
+  // @ts-ignore
+  if (!global.prisma) {
+    // @ts-ignore
+    global.prisma = new PrismaClient();
+    // eslint-disable-next-line no-console
+    console.log('[prisma] Created new PrismaClient (development)');
+  }
+  // @ts-ignore
+  prisma = global.prisma;
+}
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma; 
+// eslint-disable-next-line no-console
+console.log('[prisma] Exporting prisma instance:', typeof prisma);
+
+export { prisma }; 
