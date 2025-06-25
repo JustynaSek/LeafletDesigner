@@ -11,10 +11,11 @@ type Message = {
 interface ChatInterfaceProps {
   messages: Message[];
   onSendMessage: (message: string) => void;
-  status: 'in_chat' | 'designing';
+  status: 'in_chat' | 'designing' | 'gathering_info';
+  isLoading: boolean;
 }
 
-const ChatInterface = ({ messages, onSendMessage, status }: ChatInterfaceProps) => {
+const ChatInterface = ({ messages, onSendMessage, status, isLoading }: ChatInterfaceProps) => {
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -28,14 +29,14 @@ const ChatInterface = ({ messages, onSendMessage, status }: ChatInterfaceProps) 
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputMessage.trim() === '') return;
+    if (inputMessage.trim() === '' || isLoading) return;
     onSendMessage(inputMessage);
     setInputMessage('');
   };
 
   const getStatusMessage = () => {
     if (status === 'designing') {
-        return 'The assistant is reviewing the details and generating your leaflet with DALL-E 3. This may take a moment...';
+        return 'The assistant is generating your leaflet with DALL-E 3. This may take a moment...';
     }
     // You can add more status messages here if needed
     return 'The assistant is typing...';
@@ -67,7 +68,7 @@ const ChatInterface = ({ messages, onSendMessage, status }: ChatInterfaceProps) 
       </div>
 
       <div className="mt-auto">
-        {status !== 'in_chat' && (
+        {isLoading && (
              <div className="text-center text-sm text-gray-400 mb-2 flex items-center justify-center gap-2">
                 <LoadingSpinner />
                 <span>{getStatusMessage()}</span>
@@ -78,14 +79,14 @@ const ChatInterface = ({ messages, onSendMessage, status }: ChatInterfaceProps) 
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="Your message..."
+            placeholder={isLoading ? "Waiting for response..." : "Your message..."}
             className="flex-grow p-3 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-white"
-            disabled={status !== 'in_chat'}
+            disabled={isLoading}
           />
           <button
             type="submit"
             className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed"
-            disabled={status !== 'in_chat'}
+            disabled={isLoading}
           >
             Send
           </button>

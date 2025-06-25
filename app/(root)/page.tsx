@@ -9,7 +9,7 @@ import ChatInterface from '../components/ChatInterface';
 import LeafletPreview from '../components/LeafletPreview';
 import LoadingSpinner from '../components/LoadingSpinner';
 
-type ConversationStatus = 'awaiting_form' | 'in_chat' | 'designing' | 'completed' | 'error';
+type ConversationStatus = 'awaiting_form' | 'gathering_info' | 'in_chat' | 'designing' | 'completed' | 'error';
 type Message = {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -107,12 +107,14 @@ const HomePage = () => {
     switch (status) {
       case 'awaiting_form':
         return <InitialForm onFormSubmit={handleFormSubmit} isLoading={isLoading} />;
+      case 'gathering_info':
       case 'in_chat':
       case 'designing':
         return <ChatInterface 
                   messages={messages}
                   onSendMessage={handleSendMessage}
                   status={status}
+                  isLoading={isLoading}
                />; 
       case 'completed':
         return <LeafletPreview leafletUrl={leafletUrl} />;
