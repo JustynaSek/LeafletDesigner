@@ -1,0 +1,27 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Conversation {
+  id             String   @id @default(cuid())
+  userId         String?  // Optional for MVP, update to required if you add auth
+  initialFormData Json?   // Stores the initial form submission
+  threadId       String?  @unique
+  history        Json     @default("[]") // Array of chat messages as JSON
+  status         String   @default("awaiting_form") // e.g., "awaiting_form", "gathering_info", "designing", "completed", "failed"
+  designData     Json?    // Structured data for the leaflet
+  leafletUrl     String?  // URL of the generated leaflet image
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
