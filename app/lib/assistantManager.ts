@@ -1,4 +1,5 @@
 import { openai } from './openaiClient';
+import { generateLeafletImageToolSchema } from './imageGenerationTools';
 
 // Get or create an Assistant using the ID from env or create a new one if not present
 export async function getOrCreateAssistant() {
@@ -13,9 +14,16 @@ export async function getOrCreateAssistant() {
   }
   // Create a new Assistant (basic config, update as needed)
   const assistant = await openai.beta.assistants.create({
-    name: 'Leaflet Generator Assistant',
-    instructions: 'You are an AI assistant that helps users design custom leaflets. Gather all necessary details and synthesize a prompt for DALL-E 3 to generate the leaflet image.',
-    tools: [], // Add tool definitions here if needed
+    name: 'Leaflet Design Assistant',
+    instructions: `You are an expert AI assistant that helps users design a custom leaflet.
+Your goal is to gather all the necessary information from the user to create a beautiful and effective leaflet.
+
+Here is your process:
+1. Start by understanding the user's initial request.
+2. Ask clarifying questions one by one to gather all the parameters for the 'generateLeafletImageTool'. These parameters are: leafletSize, purpose, targetAudience, keyMessage1, keyMessage2 (optional), contactEmail (optional), style, and imageryPrompt. Do not ask for them all at once. Be conversational.
+3. Once you have collected ALL the required information, you MUST call the 'generateLeafletImageTool' with the collected data.
+4. Do not ask for permission to generate the image. Once you have the information, call the tool.`,
+    tools: [generateLeafletImageToolSchema], // Add the tool schema here
     model: 'gpt-4o-mini',
   });
   console.log('New Assistant created. Please add this ID to your .env.local:', assistant.id);

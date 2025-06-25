@@ -1,123 +1,29 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* app/globals.css or src/index.css */
 
-@custom-variant dark (&:is(.dark *));
+/*
+  1. Import Tailwind CSS.
+     This replaces @tailwind base; @tailwind components; @tailwind utilities;
+*/
+@import 'tailwindcss';
 
-@layer utilities {
-  .wrapper {
-    @apply max-w-7xl lg:mx-auto p-5 md:px-10 w-full;
-  }
-
-  .flex-start {
-    @apply flex justify-start items-center;
-  }
-  .flex-center {
-    @apply flex justify-center items-center;
-  }
-
-  .flex-between {
-    @apply flex justify-between items-center;
-  }
-
-  .h1-bold {
-    @apply font-bold text-3xl lg:text-4xl;
-  }
-
-  .h2-bold {
-    @apply font-bold text-2xl lg:text-3xl;
-  }
-
-  .h3-bold {
-    @apply font-bold text-xl lg:text-2xl;
-  }
-}
-
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-  }
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-  }
-}
-
-@layer base {
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-
-/* Uploadthing button text override */
-html.dark .upload-field .text-white {
-  color: #ffffff !important;
-}
-
-.upload-field .text-white {
-  color: #000 !important;
-}
-
+/*
+  2. Define your custom theme variables using @theme.
+     This replaces the need for a separate tailwind.config.ts for colors, etc.,
+     and automatically generates Tailwind utilities from these variables.
+     We'll use a named inline theme to keep your existing CSS variables.
+*/
 @theme inline {
+  /* Custom radius variables, mapped to Tailwind's 'borderRadius' */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /*
+    Map your custom CSS variables to Tailwind's theme properties.
+    Tailwind will automatically create classes like `bg-background`, `text-primary`, etc.
+    We're using your existing CSS variable names for consistency.
+  */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -133,6 +39,7 @@ html.dark .upload-field .text-white {
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground); /* Added destructive-foreground */
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -149,8 +56,22 @@ html.dark .upload-field .text-white {
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* New in Tailwind v4: Custom variants can be defined here if needed */
+  /* For your `dark` variant, you'll still likely apply the `dark` class to HTML or body.
+     If you need complex custom variants beyond that, you can define them here.
+     The commented line below is an example for a data attribute variant.
+     @variant data-theme-dark { &[data-theme='dark'] & }
+  */
 }
 
+
+/*
+  3. Base CSS variables for light and dark themes.
+     These define the actual values for the CSS custom properties that Tailwind's
+     `@theme inline` above will then pick up and use to generate utilities.
+     We're keeping your existing :root and .dark blocks as they are well-defined.
+*/
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
@@ -168,6 +89,7 @@ html.dark .upload-field .text-white {
   --accent: oklch(0.968 0.007 247.896);
   --accent-foreground: oklch(0.208 0.042 265.755);
   --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.984 0.003 247.858); /* Added */
   --border: oklch(0.929 0.013 255.508);
   --input: oklch(0.929 0.013 255.508);
   --ring: oklch(0.704 0.04 256.788);
@@ -202,6 +124,7 @@ html.dark .upload-field .text-white {
   --accent: oklch(0.279 0.041 260.031);
   --accent-foreground: oklch(0.984 0.003 247.858);
   --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.984 0.003 247.858); /* Added */
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.551 0.027 264.364);
@@ -220,11 +143,68 @@ html.dark .upload-field .text-white {
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
+
+/*
+  4. Global base styles.
+     Combine these into a single @layer base block.
+     The `*` and `body` rules are fundamental.
+*/
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
+    /* Optional: Add custom font-family here if not defined via @theme */
+    /* font-family: 'Inter', sans-serif; */
   }
+}
+
+
+/*
+  5. Your custom utilities.
+     These remain largely the same, as @layer utilities is still supported.
+*/
+@layer utilities {
+  .wrapper {
+    @apply max-w-7xl lg:mx-auto p-5 md:px-10 w-full;
+  }
+
+  .flex-start {
+    @apply flex justify-start items-center;
+  }
+
+  .flex-center {
+    @apply flex justify-center items-center;
+  }
+
+  .flex-between {
+    @apply flex justify-between items-center;
+  }
+
+  .h1-bold {
+    @apply font-bold text-3xl lg:text-4xl;
+  }
+
+  .h2-bold {
+    @apply font-bold text-2xl lg:text-3xl;
+  }
+
+  .h3-bold {
+    @apply font-bold text-xl lg:text-2xl;
+  }
+}
+
+/*
+  6. External overrides.
+     These remain outside Tailwind's directives as they are specific overrides
+     for third-party libraries that might not fully respect Tailwind's utility system.
+*/
+html.dark .upload-field .text-white {
+  color: #ffffff !important;
+}
+
+.upload-field .text-white {
+  color: #000 !important;
 }
