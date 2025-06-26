@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { InitialForm } from "../components/InitialForm";
 import ChatInterface from "../components/ChatInterface";
 import LeafletPreview from "../components/LeafletPreview";
@@ -30,9 +30,47 @@ export default function HomePage() {
   const [leafletUrl, setLeafletUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
 
   const { data: session, status: sessionStatus } = useSession();
   console.log("session from useSession", session, sessionStatus);
+
+  useEffect(() => {
+    console.log("[useEffect] sessionStatus changed:", sessionStatus, session);
+    if (sessionStatus === 'authenticated') {
+      const pendingData = localStorage.getItem("pendingLeafletData");
+      if (pendingData) {
+        setIsRestoring(true);
+        try {
+          const initialData = JSON.parse(pendingData);
+          localStorage.removeItem("pendingLeafletData");
+          handleStartConversation(initialData);
+        } catch (err) {
+          console.error("Failed to restore form data:", err);
+          setRestoreError("Failed to restore your form data. Please start over.");
+          localStorage.removeItem("pendingLeafletData");
+        } finally {
+          setIsRestoring(false);
+        }
+      }
+    }
+  }, [sessionStatus]);
+
+  useEffect(() => {
+    // This effect resets the page's state when the user logs out.
+    if (sessionStatus === 'unauthenticated') {
+      console.log("[useEffect] Session is unauthenticated. Resetting application state.");
+      setConversationId(null);
+      setStatus("awaiting_form");
+      setHistory([]);
+      setLeafletUrl(null);
+      setIsProcessing(false);
+      setIsClearing(false);
+      setIsRestoring(false);
+      setRestoreError(null);
+    }
+  }, [sessionStatus]);
 
   const handleStartConversation = async (initialData: {
     product: string;
@@ -82,19 +120,6 @@ export default function HomePage() {
       setIsProcessing(false);
     }
   };
-
-  useEffect(() => {
-    console.log("useEffect sessionStatus", { sessionStatus, session });
-    if (sessionStatus === 'authenticated') {
-      const pendingData = localStorage.getItem("pendingLeafletData");
-      console.log("pendingData in useEffect", pendingData);
-      if (pendingData) {
-        const initialData = JSON.parse(pendingData);
-        localStorage.removeItem("pendingLeafletData");
-        handleStartConversation(initialData);
-      }
-    }
-  }, [sessionStatus, session]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -168,9 +193,26 @@ export default function HomePage() {
     setIsClearing(false);
   };
 
+  const handleLogout = () => {
+    console.log("[Logout] Button clicked");
+    signOut()
+      .then(() => console.log("[Logout] signOut resolved"))
+      .catch((err) => console.error("[Logout] signOut error", err));
+  };
+
   const renderContent = () => {
-    const pendingData = typeof window !== 'undefined' ? localStorage.getItem("pendingLeafletData") : null;
-    console.log("renderContent", { sessionStatus, status, pendingData, isProcessing });
+    console.log("[renderContent]", { sessionStatus, status, isProcessing });
+    if (isRestoring) {
+      return <LoadingSpinner message="Restoring your form data..." />;
+    }
+    if (restoreError) {
+      return (
+        <div className="text-center text-red-500 my-8">
+          <p>{restoreError}</p>
+          <Button onClick={() => setRestoreError(null)} className="mt-4">Start Over</Button>
+        </div>
+      );
+    }
     if (sessionStatus === 'loading') {
       return <LoadingSpinner message="Loading session..." />;
     }
@@ -180,10 +222,6 @@ export default function HomePage() {
     }
 
     if (sessionStatus === 'authenticated') {
-      if (pendingData && status !== 'in_chat' && !isProcessing) {
-        return <LoadingSpinner message="Finalizing login..." />;
-      }
-      
       switch (status) {
         case "awaiting_form":
           return <InitialForm onStartConversation={handleStartConversation} isLoading={isProcessing} />;
