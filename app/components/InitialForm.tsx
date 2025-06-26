@@ -22,6 +22,8 @@ interface InitialFormProps {
     targetAudience: string;
     contactInfo: string;
     leafletSize: string;
+    leafletStyle: string;
+    colorScheme: string;
   }) => void;
   isLoading: boolean;
 }
@@ -35,6 +37,8 @@ export function InitialForm({
   const [targetAudience, setTargetAudience] = useState("");
   const [contactInfo, setContactInfo] = useState("");
   const [leafletSize, setLeafletSize] = useState("standard");
+  const [leafletStyle, setLeafletStyle] = useState('modern');
+  const [colorScheme, setColorScheme] = useState('blue');
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   const { status: sessionStatus } = useSession();
@@ -47,6 +51,8 @@ export function InitialForm({
       targetAudience,
       contactInfo,
       leafletSize,
+      leafletStyle,
+      colorScheme,
     };
 
     if (sessionStatus === "unauthenticated") {
@@ -160,6 +166,44 @@ export function InitialForm({
               <SelectItem value="dl_envelope">
                 DL Envelope (3.9" x 8.3")
               </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="leaflet-style">Leaflet Style</Label>
+          <Select
+            onValueChange={setLeafletStyle}
+            defaultValue={leafletStyle}
+            name="leaflet-style"
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a style" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="modern">Modern</SelectItem>
+              <SelectItem value="vintage">Vintage</SelectItem>
+              <SelectItem value="playful">Playful</SelectItem>
+              <SelectItem value="minimal">Minimal</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="color-scheme">Color Scheme</Label>
+          <Select
+            onValueChange={setColorScheme}
+            defaultValue={colorScheme}
+            name="color-scheme"
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a color scheme" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="blue">Blue</SelectItem>
+              <SelectItem value="green">Green</SelectItem>
+              <SelectItem value="red">Red</SelectItem>
+              <SelectItem value="custom">Custom</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
             </SelectContent>
           </Select>
         </div>

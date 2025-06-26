@@ -18,6 +18,7 @@ interface ChatInterfaceProps {
 const ChatInterface = ({ messages, onSendMessage, status, isLoading }: ChatInterfaceProps) => {
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -32,6 +33,7 @@ const ChatInterface = ({ messages, onSendMessage, status, isLoading }: ChatInter
     if (inputMessage.trim() === '' || isLoading) return;
     onSendMessage(inputMessage);
     setInputMessage('');
+    inputRef.current?.focus();
   };
 
   const getStatusMessage = () => {
@@ -86,6 +88,7 @@ const ChatInterface = ({ messages, onSendMessage, status, isLoading }: ChatInter
         )}
         <form onSubmit={handleSend} className="flex gap-2">
           <input
+            ref={inputRef}
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}

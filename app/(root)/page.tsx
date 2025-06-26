@@ -78,6 +78,8 @@ export default function HomePage() {
     targetAudience: string;
     contactInfo: string;
     leafletSize: string;
+    leafletStyle: string;
+    colorScheme: string;
   }) => {
     console.log("handleStartConversation called", { sessionStatus, session, initialData });
     if (sessionStatus !== 'authenticated' || !session?.user?.id) {
