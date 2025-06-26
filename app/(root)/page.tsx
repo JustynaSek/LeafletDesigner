@@ -7,6 +7,7 @@ import ChatInterface from "../components/ChatInterface";
 import LeafletPreview from "../components/LeafletPreview";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { LoginButton } from "../components/LoginButton";
+import { Button } from "@/components/ui/button";
 
 type ConversationStatus =
   | "awaiting_form"
@@ -28,6 +29,7 @@ export default function HomePage() {
   const [history, setHistory] = useState<Message[]>([]);
   const [leafletUrl, setLeafletUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const { data: session, status: sessionStatus } = useSession();
   console.log("session from useSession", session, sessionStatus);
@@ -156,6 +158,16 @@ export default function HomePage() {
     }
   };
 
+  const handleClearHistory = async () => {
+    setIsClearing(true);
+    await fetch('/api/clear-history', { method: 'POST' });
+    setConversationId(null);
+    setHistory([]);
+    setStatus('awaiting_form');
+    setLeafletUrl(null);
+    setIsClearing(false);
+  };
+
   const renderContent = () => {
     const pendingData = typeof window !== 'undefined' ? localStorage.getItem("pendingLeafletData") : null;
     console.log("renderContent", { sessionStatus, status, pendingData, isProcessing });
@@ -203,6 +215,15 @@ export default function HomePage() {
 
   return (
     <div className="w-full">
+      {sessionStatus === 'authenticated' && (
+        <Button
+          onClick={handleClearHistory}
+          className={`mb-4 bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors ${isClearing ? 'opacity-60 cursor-not-allowed' : ''}`}
+          disabled={isClearing}
+        >
+          {isClearing ? 'Clearing...' : 'Clear My History'}
+        </Button>
+      )}
       {renderContent()}
     </div>
   );
