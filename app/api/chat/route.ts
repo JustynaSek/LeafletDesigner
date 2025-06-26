@@ -60,13 +60,16 @@ export async function POST(req: NextRequest) {
 
     // Ensure there's a threadId for the conversation
     let threadId = conversation.threadId;
+    console.log('[DEBUG] Initial threadId from conversation:', threadId);
     if (!threadId) {
       const thread = await createThread();
       threadId = thread.id;
+      console.log('[DEBUG] Created new thread:', threadId);
       await prisma.conversation.update({
         where: { id: conversationId },
         data: { threadId },
       });
+      console.log('[DEBUG] Updated conversation with new threadId:', threadId);
     }
 
     // Add the user's message to the thread
@@ -78,7 +81,8 @@ export async function POST(req: NextRequest) {
     // Poll for the run's completion status
     while (['queued', 'in_progress', 'cancelling'].includes(run.status)) {
       await new Promise(resolve => setTimeout(resolve, POLLING_INTERVAL_MS));
-      run = await retrieveRun(run.id, threadId);
+      console.log('[DEBUG] Polling run status. Calling retrieveRun with:', { threadId, runId: run.id });
+      run = await retrieveRun(threadId, run.id);
     }
 
     // Handle the final run status
@@ -111,12 +115,22 @@ export async function POST(req: NextRequest) {
           throw new Error(`Tool ${functionName} is not available.`);
         }
         
-        const functionArgs = JSON.parse(toolCall.function.arguments);
-        
+        let functionArgs: any = {};
+        try {
+          functionArgs = JSON.parse(toolCall.function.arguments);
+        } catch (err) {
+          console.error('Failed to parse toolCall.function.arguments:', toolCall.function.arguments, err);
+          throw new Error('Invalid tool arguments received from assistant.');
+        }
+        if (typeof functionArgs !== 'object' || functionArgs === null) {
+          console.error('Tool arguments are not a valid object:', functionArgs);
+          throw new Error('Tool arguments are not a valid object.');
+        }
         // Add conversationId to the arguments for our tool
         functionArgs.conversationId = conversationId;
-
-        const output = await functionToCall(functionArgs.designData, functionArgs.conversationId);
+        // Log the DALL-E prompt or design data to the terminal
+        console.log('[DALL-E Prompt] Design Data:', JSON.stringify(functionArgs.designData ?? functionArgs, null, 2));
+        const output = await functionToCall(functionArgs.designData ?? functionArgs, functionArgs.conversationId);
         
         toolOutputs.push({
           tool_call_id: toolCall.id,
@@ -125,7 +139,8 @@ export async function POST(req: NextRequest) {
       }
 
       // Submit the tool outputs back to the assistant
-      await submitToolOutputs(run.id, threadId, toolOutputs);
+      console.log('[DEBUG] Submitting tool outputs. Calling submitToolOutputs with:', { threadId, runId: run.id, toolOutputs });
+      await submitToolOutputs(threadId, run.id, toolOutputs);
       
       // The frontend will need to poll again or be notified that the process is continuing
       return NextResponse.json({

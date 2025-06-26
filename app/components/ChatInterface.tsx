@@ -47,23 +47,33 @@ const ChatInterface = ({ messages, onSendMessage, status, isLoading }: ChatInter
       <h2 className="text-xl font-bold mb-4 text-white">Step 2: Refine with AI</h2>
       
       <div className="flex-grow overflow-y-auto pr-4 space-y-4 mb-4">
-        {messages.map((msg, index) => (
-          (msg.role === 'user' || msg.role === 'assistant') && (
-            <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {msg.role === 'assistant' && <span className="text-2xl">🤖</span>}
-              <div
-                className={`max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-2xl ${
-                  msg.role === 'user'
-                    ? 'bg-blue-600 text-white rounded-br-none'
-                    : 'bg-gray-700 text-gray-200 rounded-bl-none'
-                }`}
-              >
-                <p style={{whiteSpace: "pre-wrap"}}>{msg.content}</p>
+        {messages.map((msg, index) => {
+          // Hide DALL-E prompt messages from the user, but log them for developers
+          if (
+            msg.role === 'assistant' &&
+            (msg.content.startsWith('DALL-E PROMPT:') || msg.content.toLowerCase().includes('dall-e prompt'))
+          ) {
+            console.log('[DALL-E Prompt]', msg.content);
+            return null;
+          }
+          return (
+            (msg.role === 'user' || msg.role === 'assistant') && (
+              <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.role === 'assistant' && <span className="text-2xl">🤖</span>}
+                <div
+                  className={`max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-2xl ${
+                    msg.role === 'user'
+                      ? 'bg-blue-600 text-white rounded-br-none'
+                      : 'bg-gray-700 text-gray-200 rounded-bl-none'
+                  }`}
+                >
+                  <p style={{whiteSpace: "pre-wrap"}}>{msg.content}</p>
+                </div>
+                 {msg.role === 'user' && <span className="text-2xl">👤</span>}
               </div>
-               {msg.role === 'user' && <span className="text-2xl">👤</span>}
-            </div>
-          )
-        ))}
+            )
+          );
+        })}
          <div ref={messagesEndRef} />
       </div>
 
