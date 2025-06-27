@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { InitialForm } from "../components/InitialForm";
 import ChatInterface from "../components/ChatInterface";
@@ -33,27 +33,39 @@ export default function HomePage() {
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
 
+  const hasCheckedPendingRestore = useRef(false);
+
   const { data: session, status: sessionStatus } = useSession();
   console.log("session from useSession", session, sessionStatus);
 
   useEffect(() => {
-    console.log("[useEffect] sessionStatus changed:", sessionStatus, session);
-    if (sessionStatus === 'authenticated') {
-      const pendingData = localStorage.getItem("pendingLeafletData");
+    if (sessionStatus === 'authenticated' && !hasCheckedPendingRestore.current) {
+      hasCheckedPendingRestore.current = true;
+      const pendingData = typeof window !== 'undefined' ? localStorage.getItem("pendingLeafletData") : null;
       if (pendingData) {
+        console.log('[RESTORE] Found pendingLeafletData in localStorage after login:', pendingData);
         setIsRestoring(true);
         try {
           const initialData = JSON.parse(pendingData);
           localStorage.removeItem("pendingLeafletData");
+          console.log('[RESTORE] Calling handleStartConversation from restoration');
           handleStartConversation(initialData);
         } catch (err) {
-          console.error("Failed to restore form data:", err);
+          console.error("[RESTORE] Failed to restore form data:", err);
           setRestoreError("Failed to restore your form data. Please start over.");
           localStorage.removeItem("pendingLeafletData");
         } finally {
-          setIsRestoring(false);
+          setTimeout(() => {
+            setIsRestoring(false);
+            console.log('[RESTORE] Restoration complete, isRestoring:', false);
+          }, 500); // Ensure spinner is visible briefly
         }
+      } else {
+        console.log('[RESTORE] No pendingLeafletData found');
       }
+    }
+    if (sessionStatus === 'unauthenticated') {
+      hasCheckedPendingRestore.current = false;
     }
   }, [sessionStatus]);
 
@@ -81,9 +93,9 @@ export default function HomePage() {
     leafletStyle: string;
     colorScheme: string;
   }) => {
-    console.log("handleStartConversation called", { sessionStatus, session, initialData });
+    console.log("[handleStartConversation] called", { sessionStatus, session, initialData });
     if (sessionStatus !== 'authenticated' || !session?.user?.id) {
-        console.error("Auth check FAILED inside handleStartConversation.", { sessionStatus, hasSession: !!session });
+        console.error("[handleStartConversation] Auth check FAILED", { sessionStatus, hasSession: !!session });
         setStatus("error");
         return;
     }
@@ -99,6 +111,7 @@ export default function HomePage() {
       if (!response.ok) throw new Error("Failed to start conversation");
       const data = await response.json();
       setConversationId(data.conversationId);
+      console.log("[handleStartConversation] Conversation started, id:", data.conversationId);
       // Fetch the actual messages for the conversation
       try {
         const messagesRes = await fetch(`/api/chat?conversationId=${data.conversationId}`);
@@ -107,6 +120,7 @@ export default function HomePage() {
           setHistory(messagesData.messages || []);
           setStatus(messagesData.status || "in_chat");
           setLeafletUrl(messagesData.leafletUrl || null);
+          console.log("[handleStartConversation] Messages loaded, status:", messagesData.status);
         } else {
           setHistory([]);
           setStatus("in_chat");
@@ -116,10 +130,11 @@ export default function HomePage() {
         setStatus("in_chat");
       }
     } catch (error) {
-      console.error("Error starting conversation:", error);
+      console.error("[handleStartConversation] Error starting conversation:", error);
       setStatus("error");
     } finally {
       setIsProcessing(false);
+      console.log("[handleStartConversation] Done, status:", status);
     }
   };
 
@@ -203,7 +218,7 @@ export default function HomePage() {
   };
 
   const renderContent = () => {
-    console.log("[renderContent]", { sessionStatus, status, isProcessing });
+    console.log("[renderContent]", { sessionStatus, status, isProcessing, isRestoring });
     if (isRestoring) {
       return <LoadingSpinner message="Restoring your form data..." />;
     }
@@ -226,6 +241,7 @@ export default function HomePage() {
     if (sessionStatus === 'authenticated') {
       switch (status) {
         case "awaiting_form":
+          if (isRestoring) return <LoadingSpinner message="Restoring your form data..." />;
           return <InitialForm onStartConversation={handleStartConversation} isLoading={isProcessing} />;
         case "gathering_info":
            return <LoadingSpinner message="Preparing your chat..." />;
@@ -252,6 +268,10 @@ export default function HomePage() {
     // Fallback for any other unexpected state
     return <LoadingSpinner message="Initializing..." />;
   }
+
+  useEffect(() => {
+    console.log('[STATUS] Changed:', status);
+  }, [status]);
 
   return (
     <div className="w-full">
