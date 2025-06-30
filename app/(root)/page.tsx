@@ -22,6 +22,15 @@ type Message = {
   content: string;
 };
 
+const OUT_OF_DOMAIN_KEYWORDS = [
+  "president", "prime minister", "government", "politics", "country", "history", "law", "science", "math", "weather", "news", "celebrity", "movie", "actor", "sports", "football", "soccer", "basketball", "music", "song", "lyrics", "recipe", "cooking", "stock", "finance", "crypto", "bitcoin", "war", "conflict", "religion", "philosophy", "universe", "space", "astronomy", "biology", "chemistry", "physics", "medicine", "doctor", "disease", "covid", "pandemic"
+];
+
+function isOutOfDomain(message: string): boolean {
+  const lower = message.toLowerCase();
+  return OUT_OF_DOMAIN_KEYWORDS.some(keyword => lower.includes(keyword));
+}
+
 export default function HomePage() {
   console.log("[HomePage] Component rendered");
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -209,6 +218,14 @@ export default function HomePage() {
   }, [conversationId, status]);
 
   const handleSendMessage = async (message: string) => {
+    if (isOutOfDomain(message)) {
+      setHistory(prev => [
+        ...prev,
+        { role: "user", content: message },
+        { role: "assistant", content: "Sorry, I can only help with leaflet design and marketing questions. Please ask something related to your leaflet project!" }
+      ]);
+      return;
+    }
     if (!conversationId) return;
     setIsProcessing(true);
     const newHistory: Message[] = [...history, { role: "user", content: message }];

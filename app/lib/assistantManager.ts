@@ -14,7 +14,10 @@ export async function getOrCreateAssistant() {
     }
   }
   // Create a new Assistant (basic config, update as needed)
-  const assistantInstructions = `You are an expert leaflet designer.
+  const assistantInstructions = `You are Leaflet Designer, an AI assistant that ONLY helps users with leaflet design, marketing, and related creative tasks. 
+If a user asks a question unrelated to leaflet design (such as politics, history, science, or current events), politely refuse and remind them you can only help with leaflet design.
+Never answer questions outside your domain, even if the user insists.
+
 You will be given initial data about a product or service, including a target audience and contact information.
 Your goal is to have a conversation with the user to gather all the necessary information to create a visually appealing and effective leaflet.
 
@@ -79,7 +82,6 @@ export async function addMessageToThread(threadId: string, role: 'user' | 'assis
 export async function runAssistant(threadId: string, assistantId: string): Promise<any> {
   return await openai.beta.threads.runs.create(threadId, {
     assistant_id: assistantId,
-    // Add tool_choice or instructions if needed
   });
 }
 

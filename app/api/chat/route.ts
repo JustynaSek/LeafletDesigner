@@ -11,6 +11,7 @@ import {
 } from '@/app/lib/assistantManager';
 import { generateLeafletImageTool } from '@/app/lib/imageGenerationTools';
 import { prisma } from '@/app/lib/db';
+import { openai } from '@/app/lib/openaiClient';
 
 const POLLING_INTERVAL_MS = 1000; // Poll every 1 second
 
@@ -37,6 +38,13 @@ export async function POST(req: NextRequest) {
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
+    }
+
+    // Moderation API check
+    const moderation = await openai.moderations.create({ input: message });
+    const flagged = moderation.results[0]?.flagged;
+    if (flagged) {
+      return NextResponse.json({ error: 'Your message was flagged by our content moderation system. Please rephrase your question.' }, { status: 400 });
     }
 
     console.log('Incoming /api/chat POST', { userId, message, conversationId });
