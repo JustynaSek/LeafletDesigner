@@ -42,12 +42,29 @@ export async function POST(req: NextRequest) {
 
     // Moderation API check
     const moderation = await openai.moderations.create({ input: message });
-    const flagged = moderation.results[0]?.flagged;
-    if (flagged) {
+    if (moderation.results[0]?.flagged) {
       return NextResponse.json({ error: 'Your message was flagged by our content moderation system. Please rephrase your question.' }, { status: 400 });
     }
 
-    console.log('Incoming /api/chat POST', { userId, message, conversationId });
+    let userMessageForThread = message;
+    try {
+      const initialData = JSON.parse(message);
+      // Check for a few key properties to be reasonably sure it's the form data
+      if (initialData.product && initialData.targetAudience && initialData.leafletSize) {
+        userMessageForThread = `User has introduced this data:
+- **Product/Service Name:** ${initialData.product}
+- **Product/Service Details:** ${initialData.details}
+- **Target Audience:** ${initialData.targetAudience}
+- **Contact Information:** ${initialData.contactInfo}
+- **Leaflet Size:** ${initialData.leafletSize}
+- **Leaflet Style:** ${initialData.leafletStyle}
+- **Color Scheme:** ${initialData.colorScheme}`;
+      }
+    } catch (e) {
+      // It's not a JSON string, so it's a regular chat message. Do nothing.
+    }
+
+    console.log('Incoming /api/chat POST', { userId, message: userMessageForThread, conversationId });
 
     const assistant = await getOrCreateAssistant();
 
@@ -81,7 +98,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Add the user's message to the thread
-    await addMessageToThread(threadId, 'user', message);
+    await addMessageToThread(threadId, 'user', userMessageForThread);
 
     // Run the assistant
     let run = await runAssistant(threadId, assistant.id);
@@ -89,9 +106,11 @@ export async function POST(req: NextRequest) {
     // Poll for the run's completion status
     while (['queued', 'in_progress', 'cancelling'].includes(run.status)) {
       await new Promise(resolve => setTimeout(resolve, POLLING_INTERVAL_MS));
-      console.log('[DEBUG] Polling run status. Calling retrieveRun with:', { threadId, runId: run.id });
       run = await retrieveRun(threadId, run.id);
+      console.log('[POLLING] Run status:', run.status);
     }
+
+    console.log('[POLLING COMPLETE] Final run status:', run.status);
 
     // Handle the final run status
     if (run.status === 'completed') {
@@ -107,6 +126,7 @@ export async function POST(req: NextRequest) {
         runId: run.id,
       });
     } else if (run.status === 'requires_action') {
+      console.log('[ACTION REQUIRED] Run requires action. Full run object:', JSON.stringify(run.required_action, null, 2));
       // The assistant requires a tool call
       const toolCalls = run.required_action?.submit_tool_outputs.tool_calls;
       if (!toolCalls) {
@@ -136,14 +156,26 @@ export async function POST(req: NextRequest) {
         }
         // Add conversationId to the arguments for our tool
         functionArgs.conversationId = conversationId;
-        // Log the DALL-E prompt or design data to the terminal
-        console.log('[DALL-E Prompt] Design Data:', JSON.stringify(functionArgs.designData ?? functionArgs, null, 2));
-        const output = await functionToCall(functionArgs.designData ?? functionArgs, functionArgs.conversationId);
         
-        toolOutputs.push({
-          tool_call_id: toolCall.id,
-          output: JSON.stringify({ url: output }), // Ensure output is a stringified object
-        });
+        try {
+          console.log(`[TOOL CALL] Attempting to execute tool: ${functionName}`);
+          // Log the DALL-E prompt or design data to the terminal
+          console.log('[DALL-E Prompt] Design Data:', JSON.stringify(functionArgs.designData ?? functionArgs, null, 2));
+          const output = await functionToCall(functionArgs.designData ?? functionArgs, functionArgs.conversationId);
+          
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: JSON.stringify({ url: output }), // Ensure output is a stringified object
+          });
+        } catch (toolError) {
+          console.error('!!!!!!!!!! ERROR EXECUTING TOOL !!!!!!!!!!', { functionName, toolError });
+          const errorMessage = toolError instanceof Error ? toolError.message : String(toolError);
+          // Optionally, you could add the error to the tool output to inform the assistant
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: JSON.stringify({ error: `Tool execution failed: ${errorMessage}` }),
+          });
+        }
       }
 
       // Submit the tool outputs back to the assistant
@@ -198,17 +230,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
     }
 
+    console.log(`[GET /api/chat] Found conversation for user ${userId} with status ${conversation.status}`);
+
     type Message = { id: string; role: 'user' | 'assistant'; content: string };
     let messages: Message[] = [];
     if (conversation.threadId) {
       const threadMessages = await getThreadMessages(conversation.threadId);
       // We reverse the order to show the latest messages last, which is typical for a chat UI.
-      messages = threadMessages.data.map(msg => ({
+      messages = threadMessages.data.map((msg: any) => ({
         id: msg.id,
         role: msg.role,
-        content: msg.content.map(c => (c.type === 'text' ? c.text.value : '')).join('\n'),
+        content: msg.content.map((c: any) => (c.type === 'text' ? c.text.value : '')).join('\n'),
       })).reverse() as Message[];
     }
+
+    console.log('[GET /api/chat] Returning messages:', JSON.stringify(messages, null, 2));
 
     return NextResponse.json({
       status: conversation.status,

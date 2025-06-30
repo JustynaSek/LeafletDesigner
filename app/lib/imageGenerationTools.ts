@@ -1,27 +1,68 @@
 import { prisma } from './db';
+import { openai } from './openaiClient';
 
 interface DesignData {
   headline: string;
   body: string;
   cta: string;
   leafletSize: 'standard' | 'half_sheet' | 'dl_envelope';
+  leafletStyle: 'modern' | 'vintage' | 'playful' | 'minimal' | 'other';
+  colorScheme: string;
 }
 
 /**
- * MOCKED: Generates a leaflet image by returning a static placeholder image URL.
- * This is a temporary mock for testing the rest of the app without DALL-E API calls.
+ * Generates a leaflet image using DALL-E 3.
  */
 export async function generateLeafletImageTool(
   designData: DesignData,
   conversationId: string
 ): Promise<string> {
-  // Use a local sample image or a public placeholder
-  const imageUrl = '/images/sample-products/p1-1.jpg'; // You can change this to any image in your public folder
+  const { headline, body, cta, leafletSize, leafletStyle, colorScheme } = designData;
 
-  // Simulate a short delay to mimic API latency
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  // Immediately update the status to 'designing' to provide feedback to the user
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: { status: 'designing' },
+  });
 
-  // Update the conversation in the DB as if the image was generated
+  // 1. Construct a detailed DALL-E 3 prompt
+  const prompt = `
+    A visually appealing and professional leaflet design featuring one main hero image. The design must be clean, modern, and uncluttered, with plenty of white space. The design must be suitable for printing.
+    Style: ${leafletStyle}.
+    Color Scheme: ${colorScheme}.
+    Size consideration: ${leafletSize}.
+
+    The leaflet MUST include the following text elements clearly visible and legible:
+    - Headline: "${headline}"
+    - Body Text: "${body}"
+    - Call to Action: "${cta}"
+
+    The text should be concise and integrated naturally into the design. Avoid filling every space; prioritize a readable and elegant layout.
+  `;
+  console.log('[DALL-E 3 Prompt]', prompt);
+
+  // 2. Call the DALL-E 3 API
+  const response = await openai.images.generate({
+    model: 'dall-e-3',
+    prompt: prompt,
+    n: 1,
+    size: '1024x1792', // Portrait aspect ratio for leaflets
+    quality: 'hd',
+  });
+
+  const imageUrl = response.data?.[0]?.url;
+
+  if (!imageUrl) {
+    // If image generation fails, update status to reflect the error
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { status: 'failed' },
+    });
+    throw new Error('Image generation failed, no URL returned.');
+  }
+  console.log('[DALL-E 3] Image generated:', imageUrl);
+
+  // 3. Update the conversation in the DB with the final URL and 'completed' status
   await prisma.conversation.update({
     where: { id: conversationId },
     data: {
@@ -63,15 +104,24 @@ export const generateLeafletImageToolSchema = {
               enum: ['standard', 'half_sheet', 'dl_envelope'],
               description: 'The size of the leaflet. Standard (8.5" x 11"), Half Sheet (5.5" x 8.5"), or DL Envelope (3.9" x 8.3").',
             },
+            leafletStyle: {
+              type: 'string',
+              enum: ['modern', 'vintage', 'playful', 'minimal', 'other'],
+              description: 'The visual style of the leaflet.',
+            },
+            colorScheme: {
+              type: 'string',
+              description: 'The primary color scheme for the leaflet (e.g., "blue", "warm tones", "monochromatic black").',
+            },
           },
-          required: ['headline', 'body', 'cta', 'leafletSize'],
+          required: ['headline', 'body', 'cta', 'leafletSize', 'leafletStyle', 'colorScheme'],
         },
         conversationId: {
           type: 'string',
-          description: 'The ID of the current conversation, used to update the database record.'
+          description: 'The ID of the current conversation, used to update the database record. This is optional for the assistant to provide.'
         }
       },
-      required: ['designData', 'conversationId'],
+      required: ['designData'],
     },
   },
 }; 

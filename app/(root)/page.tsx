@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 
 type ConversationStatus =
   | "awaiting_form"
+  | "restoring"
   | "gathering_info"
   | "in_chat"
   | "designing"
@@ -39,9 +40,7 @@ export default function HomePage() {
   const [leafletUrl, setLeafletUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
-  const [bootstrapping, setBootstrapping] = useState(true);
   const [initialFormData, setInitialFormData] = useState<{
     product: string;
     details: string;
@@ -53,7 +52,6 @@ export default function HomePage() {
   } | null>(null);
 
   const hasCheckedPendingRestore = useRef(false);
-  const restorationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: session, status: sessionStatus } = useSession();
   console.log("session from useSession", session, sessionStatus);
@@ -65,8 +63,7 @@ export default function HomePage() {
       const pendingData = typeof window !== 'undefined' ? localStorage.getItem("pendingLeafletData") : null;
       console.log('[RESTORE] useEffect running. pendingData:', pendingData);
       if (pendingData) {
-        console.log('[RESTORE] Found pendingLeafletData in localStorage after login:', pendingData);
-        setIsRestoring(true);
+        setStatus('restoring');
         try {
           const initialData = JSON.parse(pendingData);
           localStorage.removeItem("pendingLeafletData");
@@ -76,66 +73,22 @@ export default function HomePage() {
           console.error("[RESTORE] Failed to restore form data:", err);
           setRestoreError("Failed to restore your form data. Please start over.");
           localStorage.removeItem("pendingLeafletData");
-        } finally {
-          if (restorationTimeoutRef.current) clearTimeout(restorationTimeoutRef.current);
-          restorationTimeoutRef.current = setTimeout(() => {
-            if (sessionStatus === 'authenticated') {
-              setIsRestoring(false);
-              console.log('[RESTORE] Restoration complete, isRestoring:', false);
-            }
-          }, 500);
+          setStatus('awaiting_form');
         }
-      } else {
-        // No pending data, restoration is done
-        setIsRestoring(false);
-        console.log('[RESTORE] No pendingLeafletData found, isRestoring set to false');
       }
     }
     if (sessionStatus === 'unauthenticated') {
-      hasCheckedPendingRestore.current = false;
-      setIsRestoring(false);
-      setBootstrapping(false);
-      if (restorationTimeoutRef.current) clearTimeout(restorationTimeoutRef.current);
-      console.log('[RESTORE] sessionStatus is unauthenticated, reset hasCheckedPendingRestore and isRestoring');
-    }
-  }, [sessionStatus]);
-
-  useEffect(() => {
-    // This effect resets the page's state when the user logs out.
-    if (sessionStatus === 'unauthenticated') {
       console.log("[useEffect] Session is unauthenticated. Resetting application state.");
+      hasCheckedPendingRestore.current = false;
       setConversationId(null);
       setStatus("awaiting_form");
       setHistory([]);
       setLeafletUrl(null);
       setIsProcessing(false);
       setIsClearing(false);
-      setIsRestoring(false);
       setRestoreError(null);
     }
   }, [sessionStatus]);
-
-  useEffect(() => {
-    console.log('[useEffect: bootstrapping] sessionStatus:', sessionStatus, 'isRestoring:', isRestoring);
-    if (sessionStatus === 'loading') {
-      setBootstrapping(true);
-      console.log('[bootstrapping] set to true (sessionStatus loading)');
-      return;
-    }
-    if (sessionStatus === 'authenticated' && isRestoring) {
-      setBootstrapping(true);
-      console.log('[bootstrapping] set to true (restoring)');
-      return;
-    }
-    if (sessionStatus === 'unauthenticated') {
-      setBootstrapping(false);
-      setIsRestoring(false);
-      console.log('[bootstrapping] set to false (unauthenticated), isRestoring reset');
-      return;
-    }
-    setBootstrapping(false);
-    console.log('[bootstrapping] set to false');
-  }, [sessionStatus, isRestoring]);
 
   const handleStartConversation = async (initialData: {
     product: string;
@@ -290,23 +243,17 @@ export default function HomePage() {
   };
 
   const renderContent = () => {
-    if (bootstrapping) {
-      return <LoadingSpinner message="Loading..." />;
+    if (sessionStatus === 'loading') {
+      return <LoadingSpinner message="Loading session..." />;
     }
-    console.log("[renderContent]", { sessionStatus, status, isProcessing, isRestoring });
-    if (isRestoring) {
-      return <LoadingSpinner message="Restoring your form data..." />;
-    }
+    
     if (restoreError) {
       return (
         <div className="text-center text-red-500 my-8">
           <p>{restoreError}</p>
-          <Button onClick={() => setRestoreError(null)} className="mt-4">Start Over</Button>
+          <Button onClick={() => { setRestoreError(null); setStatus('awaiting_form'); }} className="mt-4">Start Over</Button>
         </div>
       );
-    }
-    if (sessionStatus === 'loading') {
-      return <LoadingSpinner message="Loading session..." />;
     }
     
     if (sessionStatus === 'unauthenticated') {
@@ -316,8 +263,9 @@ export default function HomePage() {
     if (sessionStatus === 'authenticated') {
       switch (status) {
         case "awaiting_form":
-          if (isRestoring) return <LoadingSpinner message="Restoring your form data..." />;
           return <InitialForm onStartConversation={handleStartConversation} isLoading={isProcessing} initialData={initialFormData} />;
+        case "restoring":
+          return <LoadingSpinner message="Restoring your previous session..." />;
         case "gathering_info":
            return <LoadingSpinner message="Preparing your chat..." />;
         case "in_chat":

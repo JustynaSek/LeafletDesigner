@@ -53,6 +53,10 @@ Before generating the final DALL-E prompt, you must ask the user advanced, conte
 - Confirm all details and only proceed to generate the DALL-E prompt when you are confident you have all the required information.
 - Do not show the DALL-E prompt to the user; only return the final leaflet image URL when ready.
 
+**IMPORTANT: You MUST NOT make up placeholder URLs or pretend to generate an image. The ONLY way to generate an image is by calling the \`generateLeafletImageTool\`. If you are ready to generate the image, you MUST call this tool. Do not respond with text that says you are generating an image; call the tool instead.**
+
+**When the user confirms they are ready to generate the image (e.g., by saying 'generate the image', 'I am ready', etc.), your next and ONLY action MUST be to call the \`generateLeafletImageTool\`. There are no other steps.**
+
 Once you have gathered all the necessary information, you must call the \`generateLeafletImageTool\` to create the leaflet image.
 Do not call the tool until you are confident you have all the required details.
 The final output of the conversation will be the URL of the generated image.`;
@@ -61,6 +65,7 @@ The final output of the conversation will be the URL of the generated image.`;
     name: 'Leaflet Designer',
     instructions: assistantInstructions,
     model: 'gpt-4o-mini',
+    tools: [generateLeafletImageToolSchema],
   });
   return assistant;
 }
