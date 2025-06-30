@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,22 +26,45 @@ interface InitialFormProps {
     colorScheme: string;
   }) => void;
   isLoading: boolean;
+  initialData?: {
+    product: string;
+    details: string;
+    targetAudience: string;
+    contactInfo: string;
+    leafletSize: string;
+    leafletStyle: string;
+    colorScheme: string;
+  } | null;
 }
 
 export function InitialForm({
   onStartConversation,
   isLoading,
+  initialData,
 }: InitialFormProps) {
-  const [product, setProduct] = useState("");
-  const [details, setDetails] = useState("");
-  const [targetAudience, setTargetAudience] = useState("");
-  const [contactInfo, setContactInfo] = useState("");
-  const [leafletSize, setLeafletSize] = useState("standard");
-  const [leafletStyle, setLeafletStyle] = useState('modern');
-  const [colorScheme, setColorScheme] = useState('blue');
+  const [product, setProduct] = useState(initialData?.product || "");
+  const [details, setDetails] = useState(initialData?.details || "");
+  const [targetAudience, setTargetAudience] = useState(initialData?.targetAudience || "");
+  const [contactInfo, setContactInfo] = useState(initialData?.contactInfo || "");
+  const [leafletSize, setLeafletSize] = useState(initialData?.leafletSize || "standard");
+  const [leafletStyle, setLeafletStyle] = useState(initialData?.leafletStyle || 'modern');
+  const [colorScheme, setColorScheme] = useState(initialData?.colorScheme || 'blue');
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   const { status: sessionStatus } = useSession();
+
+  // Update form fields when initialData changes (e.g., when returning to form)
+  useEffect(() => {
+    if (initialData) {
+      setProduct(initialData.product || "");
+      setDetails(initialData.details || "");
+      setTargetAudience(initialData.targetAudience || "");
+      setContactInfo(initialData.contactInfo || "");
+      setLeafletSize(initialData.leafletSize || "standard");
+      setLeafletStyle(initialData.leafletStyle || 'modern');
+      setColorScheme(initialData.colorScheme || 'blue');
+    }
+  }, [initialData]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,10 +110,13 @@ export function InitialForm({
     >
       <div className="space-y-2">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          AI-Powered Leaflet Generator
+          {initialData ? 'Edit Your Leaflet Details' : 'AI-Powered Leaflet Generator'}
         </h2>
         <p className="text-gray-500 dark:text-gray-400">
-          Fill out the details below. You can refine the content with our AI assistant in the next step.
+          {initialData 
+            ? 'Review and modify your details below. You can continue refining with our AI assistant in the next step.'
+            : 'Fill out the details below. You can refine the content with our AI assistant in the next step.'
+          }
         </p>
       </div>
       <div className="space-y-4">
@@ -210,7 +236,12 @@ export function InitialForm({
       </div>
 
       <Button type="submit" disabled={isLoading} className="w-full">
-        {isLoading ? "Starting..." : "Start Conversation"}
+        {isLoading 
+          ? "Starting..." 
+          : initialData 
+            ? "Update & Continue" 
+            : "Start Conversation"
+        }
       </Button>
 
       {sessionStatus === 'unauthenticated' && (

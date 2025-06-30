@@ -23,7 +23,7 @@ type Message = {
 };
 
 export default function HomePage() {
-  console.log("HomePage rendered");
+  console.log("[HomePage] Component rendered");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [status, setStatus] = useState<ConversationStatus>("awaiting_form");
   const [history, setHistory] = useState<Message[]>([]);
@@ -32,16 +32,29 @@ export default function HomePage() {
   const [isClearing, setIsClearing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [bootstrapping, setBootstrapping] = useState(true);
+  const [initialFormData, setInitialFormData] = useState<{
+    product: string;
+    details: string;
+    targetAudience: string;
+    contactInfo: string;
+    leafletSize: string;
+    leafletStyle: string;
+    colorScheme: string;
+  } | null>(null);
 
   const hasCheckedPendingRestore = useRef(false);
+  const restorationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: session, status: sessionStatus } = useSession();
   console.log("session from useSession", session, sessionStatus);
 
   useEffect(() => {
+    console.log('[useEffect: sessionStatus]', sessionStatus);
     if (sessionStatus === 'authenticated' && !hasCheckedPendingRestore.current) {
       hasCheckedPendingRestore.current = true;
       const pendingData = typeof window !== 'undefined' ? localStorage.getItem("pendingLeafletData") : null;
+      console.log('[RESTORE] useEffect running. pendingData:', pendingData);
       if (pendingData) {
         console.log('[RESTORE] Found pendingLeafletData in localStorage after login:', pendingData);
         setIsRestoring(true);
@@ -55,17 +68,26 @@ export default function HomePage() {
           setRestoreError("Failed to restore your form data. Please start over.");
           localStorage.removeItem("pendingLeafletData");
         } finally {
-          setTimeout(() => {
-            setIsRestoring(false);
-            console.log('[RESTORE] Restoration complete, isRestoring:', false);
-          }, 500); // Ensure spinner is visible briefly
+          if (restorationTimeoutRef.current) clearTimeout(restorationTimeoutRef.current);
+          restorationTimeoutRef.current = setTimeout(() => {
+            if (sessionStatus === 'authenticated') {
+              setIsRestoring(false);
+              console.log('[RESTORE] Restoration complete, isRestoring:', false);
+            }
+          }, 500);
         }
       } else {
-        console.log('[RESTORE] No pendingLeafletData found');
+        // No pending data, restoration is done
+        setIsRestoring(false);
+        console.log('[RESTORE] No pendingLeafletData found, isRestoring set to false');
       }
     }
     if (sessionStatus === 'unauthenticated') {
       hasCheckedPendingRestore.current = false;
+      setIsRestoring(false);
+      setBootstrapping(false);
+      if (restorationTimeoutRef.current) clearTimeout(restorationTimeoutRef.current);
+      console.log('[RESTORE] sessionStatus is unauthenticated, reset hasCheckedPendingRestore and isRestoring');
     }
   }, [sessionStatus]);
 
@@ -84,6 +106,28 @@ export default function HomePage() {
     }
   }, [sessionStatus]);
 
+  useEffect(() => {
+    console.log('[useEffect: bootstrapping] sessionStatus:', sessionStatus, 'isRestoring:', isRestoring);
+    if (sessionStatus === 'loading') {
+      setBootstrapping(true);
+      console.log('[bootstrapping] set to true (sessionStatus loading)');
+      return;
+    }
+    if (sessionStatus === 'authenticated' && isRestoring) {
+      setBootstrapping(true);
+      console.log('[bootstrapping] set to true (restoring)');
+      return;
+    }
+    if (sessionStatus === 'unauthenticated') {
+      setBootstrapping(false);
+      setIsRestoring(false);
+      console.log('[bootstrapping] set to false (unauthenticated), isRestoring reset');
+      return;
+    }
+    setBootstrapping(false);
+    console.log('[bootstrapping] set to false');
+  }, [sessionStatus, isRestoring]);
+
   const handleStartConversation = async (initialData: {
     product: string;
     details: string;
@@ -100,6 +144,8 @@ export default function HomePage() {
         return;
     }
 
+    // Store the initial form data for potential return to form
+    setInitialFormData(initialData);
     setIsProcessing(true);
     setStatus("gathering_info");
     try {
@@ -217,7 +263,19 @@ export default function HomePage() {
       .catch((err) => console.error("[Logout] signOut error", err));
   };
 
+  const handleReturnToForm = () => {
+    console.log("[handleReturnToForm] Returning to form with data:", initialFormData);
+    setConversationId(null);
+    setHistory([]);
+    setStatus("awaiting_form");
+    setLeafletUrl(null);
+    setIsProcessing(false);
+  };
+
   const renderContent = () => {
+    if (bootstrapping) {
+      return <LoadingSpinner message="Loading..." />;
+    }
     console.log("[renderContent]", { sessionStatus, status, isProcessing, isRestoring });
     if (isRestoring) {
       return <LoadingSpinner message="Restoring your form data..." />;
@@ -242,7 +300,7 @@ export default function HomePage() {
       switch (status) {
         case "awaiting_form":
           if (isRestoring) return <LoadingSpinner message="Restoring your form data..." />;
-          return <InitialForm onStartConversation={handleStartConversation} isLoading={isProcessing} />;
+          return <InitialForm onStartConversation={handleStartConversation} isLoading={isProcessing} initialData={initialFormData} />;
         case "gathering_info":
            return <LoadingSpinner message="Preparing your chat..." />;
         case "in_chat":
@@ -276,13 +334,23 @@ export default function HomePage() {
   return (
     <div className="w-full">
       {sessionStatus === 'authenticated' && (
-        <Button
-          onClick={handleClearHistory}
-          className={`mb-4 bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors ${isClearing ? 'opacity-60 cursor-not-allowed' : ''}`}
-          disabled={isClearing}
-        >
-          {isClearing ? 'Clearing...' : 'Clear My History'}
-        </Button>
+        <div className="flex gap-4 mb-4">
+          <Button
+            onClick={handleClearHistory}
+            className={`bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors ${isClearing ? 'opacity-60 cursor-not-allowed' : ''}`}
+            disabled={isClearing}
+          >
+            {isClearing ? 'Clearing...' : 'Clear My History'}
+          </Button>
+          {status === 'in_chat' && (
+            <Button
+              onClick={handleReturnToForm}
+              className="bg-gray-600 hover:bg-gray-700 text-white font-semibold transition-colors"
+            >
+              ← Back to Form
+            </Button>
+          )}
+        </div>
       )}
       {renderContent()}
     </div>
