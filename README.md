@@ -1,10 +1,92 @@
-AI-Powered Leaflet Generator (MVP)
-Project Overview
+# <img src="public/images/logo.svg" alt="Leaflet Generator Logo" width="48" style="vertical-align:middle;"/> AI-Powered Leaflet Generator
+
+---
+
+> **Create beautiful, custom leaflets in minutes using AI-powered forms and chat.**
+
+![App Screenshot](public/images/screen.png)
+
+---
+
+## 🚀 Features
+- **Hybrid Data Gathering:** Start with a form, then refine with AI chat.
+- **Conversational Design:** AI asks clarifying questions to perfect your leaflet.
+- **Direct AI Image Generation:** Uses DALL-E 3 to create a complete leaflet image.
+- **Real-time Feedback:** See conversation and progress as your leaflet is built.
+- **Modern UI:** Built with Next.js, Tailwind CSS, and React.
+- **Session Management:** Track your design process and results.
+
+## 🛠️ Tech Stack
+- **Frontend:** Next.js (App Router), React, Tailwind CSS
+- **Backend:** Node.js, TypeScript, Next.js API Routes
+- **AI:** OpenAI Assistants API, DALL-E 3
+- **Database:** SQLite (via Prisma ORM)
+- **Auth:** NextAuth.js (optional, for multi-user)
+
+## ⚡ Quick Start
+1. **Clone the repo:**
+   ```bash
+   git clone https://github.com/yourusername/leaflet-generator.git
+   cd leaflet-generator
+   ```
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+3. **Set up environment variables:**
+   - Copy `.env.local.example` to `.env.local` and fill in your keys (see below).
+4. **Run database migrations:**
+   ```bash
+   npx prisma migrate dev --name init
+   ```
+5. **Start the dev server:**
+   ```bash
+   npm run dev
+   ```
+6. **Open in browser:**
+   Visit [http://localhost:3000](http://localhost:3000)
+
+## 📝 Usage
+- Fill out the initial form with your leaflet's purpose and details.
+- Chat with the AI to refine your design.
+- View and download your generated leaflet image.
+
+## 🔑 Environment Variables
+Create a `.env.local` file in the root with:
+```
+OPENAI_API_KEY=your_openai_api_key
+DATABASE_URL="file:./dev.db"
+OPENAI_ASSISTANT_ID=your_openai_assistant_id
+NEXTAUTH_SECRET=your_nextauth_secret (if using auth)
+```
+
+## 🤝 Contributing
+Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
+
+1. Fork the repo
+2. Create your feature branch (`git checkout -b feature/your-feature`)
+3. Commit your changes (`git commit -am 'Add new feature'`)
+4. Push to the branch (`git push origin feature/your-feature`)
+5. Open a Pull Request
+
+## 📄 License
+[MIT](LICENSE)
+
+## 📬 Contact & About
+- [About Page](app/(root)/about/page.tsx)
+- Email: your@email.com
+
+---
+
+<details>
+<summary>Development Plan & Advanced Details</summary>
+
+## Project Overview
 This project aims to build a Minimum Viable Product (MVP) for a web application that generates custom leaflets. It features a hybrid data gathering approach: users first provide essential, structured information via a form. Following this, an AI conversational agent (powered by the OpenAI Assistants API) will engage the user in a dialogue, asking clarifying questions to gather more nuanced and specific preferences for the leaflet design. Once sufficient data is collected, the AI will synthesize this information into a comprehensive prompt for a direct AI image generation model (e.g., OpenAI's DALL-E 3), which will create the entire visual leaflet as a single image. This image will then be displayed to the user through a modern Next.js frontend.
 
 This MVP prioritizes demonstrating the core concept end-to-end, leveraging the latest advancements in text-to-image AI.
 
-Core Features (MVP Focus)
+## Core Features (MVP Focus)
 Hybrid Data Gathering (Form + Conversational AI):
 Initial Form Input: Collects essential, structured information like leaflet purpose, target audience, and preferred size.
 Conversational AI Agent (OpenAI Assistants API): Guides the user through follow-up questions to gather more specific design details (e.g., key messages, desired tone, imagery ideas).
@@ -15,7 +97,8 @@ Real-time Feedback: Displays conversation turns and basic loading states during 
 Responsive UI: A simple web interface for form input and chat interaction, built with Next.js and Tailwind CSS.
 User & Session Management: Basic session handling for tracking conversations. (Full NextAuth.js authentication will be a later enhancement for MVP).
 Secure API Handling: Manages API keys and secrets securely on the server-side.
-Technology Stack
+
+## Technology Stack
 Frontend Framework: Next.js (React.js App Router)
 Styling: Tailwind CSS
 Backend (within Next.js API Routes): Node.js / TypeScript
@@ -24,7 +107,8 @@ Direct Image Generation: OpenAI DALL-E 3 API (or other advanced model like Googl
 HTTP Client: axios or node-fetch
 Database: PostgreSQL / MongoDB / SQLite (for MVP, SQLite via Prisma can be quick for local development)
 ORM: Prisma (recommended for database interaction)
-Instruction to the LLM: Interactive, Step-by-Step Development
+
+## Instruction to the LLM: Interactive, Step-by-Step Development
 This is a collaborative development process. Instead of providing all code at once, please follow these instructions:
 
 Understand the Current Step: Review the current step's Goal and Detailed Actions.
@@ -34,10 +118,10 @@ Deliver Code Incrementally: Provide the code for only the current sub-step or a 
 Explain the Code: For each code block, provide a clear, concise explanation of what it does, why it's structured that way, and any important considerations or prerequisites.
 Suggest Testing: After delivering a piece of code, recommend how I can test its functionality before moving to the next step. This is crucial for verifying progress.
 Confirm Readiness: Ask me if I've successfully tested and understood the current step's code and if I'm ready to proceed.
-Project Structure
+
+## Project Structure
 your-ai-leaflet-app/
 ├── public/                     # Static assets (images, fonts)
-├── app/
 │   ├── api/
 │   │   ├── initial-form/route.ts    # API endpoint for initial form submission
 │   │   └── chat/route.ts            # Main API endpoint for conversational interaction
@@ -61,7 +145,8 @@ your-ai-leaflet-app/
 ├── postcss.config.js           # PostCSS configuration for Tailwind
 ├── tailwind.config.ts          # Tailwind CSS configuration
 └── tsconfig.json               # TypeScript configuration
-Step-by-Step Generation Plan (Detailed for MVP)
+
+## Step-by-Step Generation Plan (Detailed for MVP)
 Phase 1: Core Backend & Agent Setup (Foundation for MVP)
 Step 1.1: Project Initialization & Environment Configuration
 Goal: Set up a basic Next.js project, integrate Tailwind CSS, and prepare for secure environment variable management.
@@ -369,3 +454,4 @@ Provide the basic setup for NextAuth.js with a simple provider.
 Emphasize the importance of NEXTAUTH_SECRET in .env.local for production.
 Show how to get the user ID from session.user.id in server-side API routes.
 Remind to update the Prisma schema and run migrations.
+</details>
