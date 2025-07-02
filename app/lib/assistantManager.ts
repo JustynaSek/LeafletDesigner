@@ -2,6 +2,9 @@
 import { openai } from './openaiClient';
 import { generateLeafletImageToolSchema } from './imageGenerationTools';
 
+// Define ToolOutput type for submitToolOutputs
+type ToolOutput = { tool_call_id: string; output: string };
+
 // Get or create an Assistant using the ID from env or create a new one if not present
 export async function getOrCreateAssistant() {
   const assistantId = process.env.OPENAI_ASSISTANT_ID;
@@ -96,7 +99,7 @@ export async function retrieveRun(threadId: string, runId: string): Promise<unkn
 }
 
 // Submit tool outputs
-export async function submitToolOutputs(threadId: string, runId: string, toolOutputs: unknown[]): Promise<unknown> {
+export async function submitToolOutputs(threadId: string, runId: string, toolOutputs: ToolOutput[]): Promise<unknown> {
   return await openai.beta.threads.runs.submitToolOutputs(runId, { thread_id: threadId, tool_outputs: toolOutputs });
 }
 
