@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useSession, signOut } from "next-auth/react";
+import { useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { InitialForm } from "../components/InitialForm";
 import ChatInterface from "../components/ChatInterface";
 import LeafletPreview from "../components/LeafletPreview";
 import LoadingSpinner from "../components/LoadingSpinner";
-import { LoginButton } from "../components/LoginButton";
 import { Button } from "@/components/ui/button";
 
 type ConversationStatus =
@@ -69,8 +68,8 @@ export default function HomePage() {
           localStorage.removeItem("pendingLeafletData");
           console.log('[RESTORE] Calling handleStartConversation from restoration');
           handleStartConversation(initialData);
-        } catch (err) {
-          console.error("[RESTORE] Failed to restore form data:", err);
+        } catch {
+          console.error("[RESTORE] Failed to restore form data:");
           setRestoreError("Failed to restore your form data. Please start over.");
           localStorage.removeItem("pendingLeafletData");
           setStatus('awaiting_form');
@@ -133,12 +132,12 @@ export default function HomePage() {
           setHistory([]);
           setStatus("in_chat");
         }
-      } catch (err) {
+      } catch {
         setHistory([]);
         setStatus("in_chat");
       }
-    } catch (error) {
-      console.error("[handleStartConversation] Error starting conversation:", error);
+    } catch {
+      console.error("[handleStartConversation] Error starting conversation:");
       setStatus("error");
     } finally {
       setIsProcessing(false);
@@ -162,7 +161,7 @@ export default function HomePage() {
             clearInterval(interval);
           }
         }
-      } catch (err) {
+      } catch {
         // Optionally handle error
       }
     }, 2000);
@@ -208,8 +207,8 @@ export default function HomePage() {
         setStatus(data.status);
         setLeafletUrl(data.leafletUrl);
       }
-    } catch (error) {
-      console.error("Error sending message:", error);
+    } catch {
+      console.error("Error sending message:");
       setStatus("error");
     } finally {
       setIsProcessing(false);
@@ -224,13 +223,6 @@ export default function HomePage() {
     setStatus('awaiting_form');
     setLeafletUrl(null);
     setIsClearing(false);
-  };
-
-  const handleLogout = () => {
-    console.log("[Logout] Button clicked");
-    signOut()
-      .then(() => console.log("[Logout] signOut resolved"))
-      .catch((err) => console.error("[Logout] signOut error", err));
   };
 
   const handleReturnToForm = () => {

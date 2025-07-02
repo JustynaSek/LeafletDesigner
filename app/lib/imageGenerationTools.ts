@@ -1,7 +1,8 @@
 import { prisma } from './db';
 import { openai } from './openaiClient';
+import { Prisma } from '@prisma/client';
 
-interface DesignData {
+export interface DesignData {
   headline: string;
   body: string;
   cta: string;
@@ -38,6 +39,8 @@ export async function generateLeafletImageTool(
     - Call to Action: "${cta}"
 
     The text should be concise and integrated naturally into the design. Avoid filling every space; prioritize a readable and elegant layout.
+
+    Only show a single leaflet, not multiple versions, mockups, or examples. Do not show more than one leaflet in the image. The leaflet should be centered and clearly visible, with a plain or minimal background. Do not show the leaflet at an angle or as part of a group. Do not include duplicate or overlapping leaflets.
   `;
   console.log('[DALL-E 3 Prompt]', prompt);
 
@@ -68,7 +71,7 @@ export async function generateLeafletImageTool(
     data: {
       leafletUrl: imageUrl,
       status: 'completed',
-      designData: designData as any,
+      designData: designData as unknown as Prisma.InputJsonValue,
     },
   });
 

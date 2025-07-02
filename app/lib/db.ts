@@ -4,21 +4,21 @@ let prisma: PrismaClient;
 
 if (process.env.NODE_ENV === 'production') {
   prisma = new PrismaClient();
-  // eslint-disable-next-line no-console
+   
   console.log('[prisma] Created new PrismaClient (production)');
 } else {
-  // @ts-ignore
+  // @ts-expect-error: Node.js global type workaround
   if (!global.prisma) {
-    // @ts-ignore
+    // @ts-expect-error: Node.js global type workaround
     global.prisma = new PrismaClient();
-    // eslint-disable-next-line no-console
+     
     console.log('[prisma] Created new PrismaClient (development)');
   }
-  // @ts-ignore
+  // @ts-expect-error: Node.js global type workaround
   prisma = global.prisma;
 }
 
-// eslint-disable-next-line no-console
+ 
 console.log('[prisma] Exporting prisma instance:', typeof prisma);
 
 export { prisma }; 

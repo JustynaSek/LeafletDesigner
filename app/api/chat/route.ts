@@ -12,13 +12,27 @@ import {
 import { generateLeafletImageTool } from '@/app/lib/imageGenerationTools';
 import { prisma } from '@/app/lib/db';
 import { openai } from '@/app/lib/openaiClient';
+import type { DesignData } from '@/app/lib/imageGenerationTools';
 
 const POLLING_INTERVAL_MS = 1000; // Poll every 1 second
 
 // A map to store available tools
-const availableTools: { [key: string]: Function } = {
+const availableTools: { [key: string]: (designData: DesignData, conversationId: string) => Promise<string> } = {
   generateLeafletImageTool,
 };
+
+// Define type guards for run and thread:
+function isRun(obj: unknown): obj is { id: string; status: string; required_action?: { submit_tool_outputs?: { tool_calls: Array<{ id: string; function: { name: string; arguments: string } }> } } } {
+  return typeof obj === 'object' && obj !== null && 'id' in obj && 'status' in obj;
+}
+function isThread(obj: unknown): obj is { id: string } {
+  return typeof obj === 'object' && obj !== null && 'id' in obj;
+}
+
+// Add a type guard for threadMessages:
+function isThreadMessages(obj: unknown): obj is { data: unknown[] } {
+  return typeof obj === 'object' && obj !== null && Array.isArray((obj as { data?: unknown[] }).data);
+}
 
 /**
  * POST /api/chat
@@ -34,7 +48,7 @@ export async function POST(req: NextRequest) {
     const userId = session.user.id;
 
     const { message, conversationId: convId } = await req.json();
-    let conversationId = convId;
+    let conversationId = convId ?? '';
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -60,7 +74,7 @@ export async function POST(req: NextRequest) {
 - **Leaflet Style:** ${initialData.leafletStyle}
 - **Color Scheme:** ${initialData.colorScheme}`;
       }
-    } catch (e) {
+    } catch {
       // It's not a JSON string, so it's a regular chat message. Do nothing.
     }
 
@@ -88,7 +102,8 @@ export async function POST(req: NextRequest) {
     console.log('[DEBUG] Initial threadId from conversation:', threadId);
     if (!threadId) {
       const thread = await createThread();
-      threadId = thread.id;
+      if (!isThread(thread)) throw new Error('Invalid thread object');
+      threadId = String(thread.id);
       console.log('[DEBUG] Created new thread:', threadId);
       await prisma.conversation.update({
         where: { id: conversationId },
@@ -98,15 +113,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Add the user's message to the thread
-    await addMessageToThread(threadId, 'user', userMessageForThread);
+    await addMessageToThread(String(threadId ?? ''), 'user', userMessageForThread);
 
     // Run the assistant
-    let run = await runAssistant(threadId, assistant.id);
+    let run = await runAssistant(String(threadId ?? ''), assistant.id);
+    if (!isRun(run)) throw new Error('Invalid run object');
 
     // Poll for the run's completion status
     while (['queued', 'in_progress', 'cancelling'].includes(run.status)) {
       await new Promise(resolve => setTimeout(resolve, POLLING_INTERVAL_MS));
-      run = await retrieveRun(threadId, run.id);
+      run = await retrieveRun(String(threadId ?? ''), run.id);
+      if (!isRun(run)) throw new Error('Invalid run object');
       console.log('[POLLING] Run status:', run.status);
     }
 
@@ -128,7 +145,7 @@ export async function POST(req: NextRequest) {
     } else if (run.status === 'requires_action') {
       console.log('[ACTION REQUIRED] Run requires action. Full run object:', JSON.stringify(run.required_action, null, 2));
       // The assistant requires a tool call
-      const toolCalls = run.required_action?.submit_tool_outputs.tool_calls;
+      const toolCalls = run.required_action?.submit_tool_outputs?.tool_calls;
       if (!toolCalls) {
         throw new Error('Run requires action, but no tool calls were found.');
       }
@@ -143,25 +160,19 @@ export async function POST(req: NextRequest) {
           throw new Error(`Tool ${functionName} is not available.`);
         }
         
-        let functionArgs: any = {};
-        try {
-          functionArgs = JSON.parse(toolCall.function.arguments);
-        } catch (err) {
-          console.error('Failed to parse toolCall.function.arguments:', toolCall.function.arguments, err);
-          throw new Error('Invalid tool arguments received from assistant.');
-        }
+        const functionArgs = JSON.parse(toolCall.function.arguments) as { designData?: object; conversationId?: string };
         if (typeof functionArgs !== 'object' || functionArgs === null) {
           console.error('Tool arguments are not a valid object:', functionArgs);
           throw new Error('Tool arguments are not a valid object.');
         }
         // Add conversationId to the arguments for our tool
-        functionArgs.conversationId = conversationId;
+        functionArgs.conversationId = String(conversationId ?? '');
         
         try {
           console.log(`[TOOL CALL] Attempting to execute tool: ${functionName}`);
           // Log the DALL-E prompt or design data to the terminal
           console.log('[DALL-E Prompt] Design Data:', JSON.stringify(functionArgs.designData ?? functionArgs, null, 2));
-          const output = await functionToCall(functionArgs.designData ?? functionArgs, functionArgs.conversationId);
+          const output = await functionToCall(functionArgs.designData as DesignData, String(functionArgs.conversationId ?? '')) as string;
           
           toolOutputs.push({
             tool_call_id: toolCall.id,
@@ -180,7 +191,7 @@ export async function POST(req: NextRequest) {
 
       // Submit the tool outputs back to the assistant
       console.log('[DEBUG] Submitting tool outputs. Calling submitToolOutputs with:', { threadId, runId: run.id, toolOutputs });
-      await submitToolOutputs(threadId, run.id, toolOutputs);
+      await submitToolOutputs(String(threadId ?? ''), run.id, toolOutputs);
       
       // The frontend will need to poll again or be notified that the process is continuing
       return NextResponse.json({
@@ -232,16 +243,23 @@ export async function GET(req: NextRequest) {
 
     console.log(`[GET /api/chat] Found conversation for user ${userId} with status ${conversation.status}`);
 
-    type Message = { id: string; role: 'user' | 'assistant'; content: string };
+    type OpenAIMessage = { id: string; role: string; content: unknown[]; created_at?: number };
+    type Message = { id: string; role: 'user' | 'assistant'; content: string; createdAt: number };
     let messages: Message[] = [];
     if (conversation.threadId) {
-      const threadMessages = await getThreadMessages(conversation.threadId);
-      // We reverse the order to show the latest messages last, which is typical for a chat UI.
-      messages = threadMessages.data.map((msg: any) => ({
-        id: msg.id,
-        role: msg.role,
-        content: msg.content.map((c: any) => (c.type === 'text' ? c.text.value : '')).join('\n'),
-      })).reverse() as Message[];
+      const threadMessages = await getThreadMessages(String(conversation.threadId ?? ''));
+      if (!isThreadMessages(threadMessages)) throw new Error('Invalid threadMessages object');
+      messages = threadMessages.data.map((msg) => {
+        if (typeof msg !== 'object' || !msg || !('id' in msg) || !('role' in msg) || !('content' in msg)) return null;
+        const contentArr = Array.isArray((msg as { content?: unknown }).content) ? (msg as { content: unknown[] }).content : [];
+        const openaiMsg = msg as OpenAIMessage;
+        return {
+          id: openaiMsg.id,
+          role: openaiMsg.role as 'user' | 'assistant',
+          content: contentArr.map((c) => (typeof c === 'object' && c && 'type' in c && (c as { type: string }).type === 'text' && 'text' in c && typeof (c as { text: { value: string } }).text.value === 'string' ? (c as { text: { value: string } }).text.value : '')).join('\n'),
+          createdAt: typeof openaiMsg.created_at === 'number' ? openaiMsg.created_at * 1000 : Date.now(),
+        };
+      }).filter(Boolean) as Message[];
     }
 
     console.log('[GET /api/chat] Returning messages:', JSON.stringify(messages, null, 2));

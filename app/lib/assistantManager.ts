@@ -9,7 +9,7 @@ export async function getOrCreateAssistant() {
     try {
       const assistant = await openai.beta.assistants.retrieve(assistantId);
       return assistant;
-    } catch (e) {
+    } catch {
       console.warn('Assistant ID in env not found, creating a new one...');
     }
   }
@@ -71,12 +71,12 @@ The final output of the conversation will be the URL of the generated image.`;
 }
 
 // Create a new thread
-export async function createThread(): Promise<any> {
+export async function createThread(): Promise<unknown> {
   return await openai.beta.threads.create();
 }
 
 // Add a message to a thread
-export async function addMessageToThread(threadId: string, role: 'user' | 'assistant', content: string): Promise<any> {
+export async function addMessageToThread(threadId: string, role: 'user' | 'assistant', content: string): Promise<unknown> {
   return await openai.beta.threads.messages.create(threadId, {
     role,
     content,
@@ -84,23 +84,23 @@ export async function addMessageToThread(threadId: string, role: 'user' | 'assis
 }
 
 // Run the assistant on a thread
-export async function runAssistant(threadId: string, assistantId: string): Promise<any> {
+export async function runAssistant(threadId: string, assistantId: string): Promise<unknown> {
   return await openai.beta.threads.runs.create(threadId, {
     assistant_id: assistantId,
   });
 }
 
 // Retrieve a run
-export async function retrieveRun(threadId: string, runId: string): Promise<any> {
+export async function retrieveRun(threadId: string, runId: string): Promise<unknown> {
   return await openai.beta.threads.runs.retrieve(runId, { thread_id: threadId });
 }
 
 // Submit tool outputs
-export async function submitToolOutputs(threadId: string, runId: string, toolOutputs: any[]): Promise<any> {
+export async function submitToolOutputs(threadId: string, runId: string, toolOutputs: unknown[]): Promise<unknown> {
   return await openai.beta.threads.runs.submitToolOutputs(runId, { thread_id: threadId, tool_outputs: toolOutputs });
 }
 
 // Get all messages from a thread
-export async function getThreadMessages(threadId: string): Promise<any> {
+export async function getThreadMessages(threadId: string): Promise<unknown> {
   return await openai.beta.threads.messages.list(threadId);
 }

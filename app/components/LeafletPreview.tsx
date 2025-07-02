@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 
 interface LeafletPreviewProps {
   leafletUrl: string | null;
@@ -11,7 +12,7 @@ const LeafletPreview = ({ leafletUrl }: LeafletPreviewProps) => {
     return (
       <div className="p-6 border border-gray-700 rounded-lg bg-gray-800 text-center">
         <h2 className="text-2xl font-bold mb-4 text-white">Something went wrong</h2>
-        <p className="text-gray-400">We couldn't generate your leaflet. Please try again.</p>
+        <p className="text-gray-400">We couldn&apos;t generate your leaflet. Please try again.</p>
       </div>
     );
   }
@@ -21,10 +22,11 @@ const LeafletPreview = ({ leafletUrl }: LeafletPreviewProps) => {
       <h2 className="text-2xl font-bold mb-4 text-white text-center">Your Leaflet is Ready!</h2>
       
       <div className="mb-6">
-        <img 
+        <Image 
           src={leafletUrl} 
           alt="Generated AI Leaflet" 
           className="w-full h-auto rounded-lg shadow-lg" 
+          fill
         />
       </div>
 

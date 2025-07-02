@@ -6,6 +6,7 @@ import LoadingSpinner from './LoadingSpinner';
 type Message = {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  createdAt: number;
 };
 
 interface ChatInterfaceProps {
@@ -49,43 +50,46 @@ const ChatInterface = ({ messages, onSendMessage, status, isLoading }: ChatInter
       <h2 className="text-2xl font-bold mb-4 text-gray-800">Step 2: Refine with AI</h2>
       
       <div className="flex-grow overflow-y-auto pr-4 space-y-4 mb-4">
-        {messages.map((msg, index) => {
-          // Hide DALL-E prompt messages from the user, but log them for developers
-          if (
-            msg.role === 'assistant' &&
-            (msg.content.startsWith('DALL-E PROMPT:') || msg.content.toLowerCase().includes('dall-e prompt'))
-          ) {
-            console.log('[DALL-E Prompt]', msg.content);
-            return null;
-          }
-          const isUser = msg.role === 'user';
-          const isAssistant = msg.role === 'assistant';
-          return (
-            (isUser || isAssistant) && (
-              <div key={index} className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
-                {isAssistant && (
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-bold text-lg shadow-sm">
-                    <span>AI</span>
+        {messages
+          .slice()
+          .sort((a, b) => a.createdAt - b.createdAt)
+          .map((msg, index) => {
+            // Hide DALL-E prompt messages from the user, but log them for developers
+            if (
+              msg.role === 'assistant' &&
+              (msg.content.startsWith('DALL-E PROMPT:') || msg.content.toLowerCase().includes('dall-e prompt'))
+            ) {
+              console.log('[DALL-E Prompt]', msg.content);
+              return null;
+            }
+            const isUser = msg.role === 'user';
+            const isAssistant = msg.role === 'assistant';
+            return (
+              (isUser || isAssistant) && (
+                <div key={index} className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
+                  {isAssistant && (
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-bold text-lg shadow-sm">
+                      <span>AI</span>
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-lg p-4 rounded-2xl shadow-md ${
+                      isUser
+                        ? 'bg-blue-50 text-blue-900 rounded-br-none'
+                        : 'bg-gray-100 text-gray-800 rounded-bl-none'
+                    }`}
+                  >
+                    <p style={{whiteSpace: "pre-wrap"}}>{msg.content}</p>
                   </div>
-                )}
-                <div
-                  className={`max-w-lg p-4 rounded-2xl shadow-md ${
-                    isUser
-                      ? 'bg-blue-50 text-blue-900 rounded-br-none'
-                      : 'bg-gray-100 text-gray-800 rounded-bl-none'
-                  }`}
-                >
-                  <p style={{whiteSpace: "pre-wrap"}}>{msg.content}</p>
+                  {isUser && (
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-600 font-bold text-lg shadow-sm">
+                      <span>U</span>
+                    </div>
+                  )}
                 </div>
-                {isUser && (
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-600 font-bold text-lg shadow-sm">
-                    <span>U</span>
-                  </div>
-                )}
-              </div>
-            )
-          );
-        })}
+              )
+            );
+          })}
         <div ref={messagesEndRef} />
       </div>
 
