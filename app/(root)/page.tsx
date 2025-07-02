@@ -20,6 +20,7 @@ type ConversationStatus =
 type Message = {
   role: "user" | "assistant" | "system";
   content: string;
+  createdAt: number;
 };
 
 const OUT_OF_DOMAIN_KEYWORDS = [
@@ -173,14 +174,14 @@ export default function HomePage() {
     if (isOutOfDomain(message)) {
       setHistory(prev => [
         ...prev,
-        { role: "user", content: message },
-        { role: "assistant", content: "Sorry, I can only help with leaflet design and marketing questions. Please ask something related to your leaflet project!" }
+        { role: "user", content: message, createdAt: Date.now() },
+        { role: "assistant", content: "Sorry, I can only help with leaflet design and marketing questions. Please ask something related to your leaflet project!", createdAt: Date.now() }
       ]);
       return;
     }
     if (!conversationId) return;
     setIsProcessing(true);
-    const newHistory: Message[] = [...history, { role: "user", content: message }];
+    const newHistory: Message[] = [...history, { role: "user", content: message, createdAt: Date.now() }];
     setHistory(newHistory);
     try {
       const response = await fetch("/api/chat", {
