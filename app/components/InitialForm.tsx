@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { LoginButton } from './LoginButton';
 
 interface InitialFormProps {
   onStartConversation: (initialData: {
@@ -96,7 +97,7 @@ export function InitialForm({
           been saved.
         </p>
         <div className='max-w-xs mx-auto'>
-         &lt;LoginButton isPrimary={false} /&gt;
+          <LoginButton isPrimary={false} />
         </div>
       </div>
     );
@@ -251,7 +252,7 @@ export function InitialForm({
                 </span>
               </div>
             </div>
-            &lt;LoginButton isPrimary={false} /&gt;
+            <LoginButton isPrimary={false} />
         </>
       )}
     </form>
